@@ -1,88 +1,99 @@
 import { ButtonLink } from "@/components/ButtonLink";
+import { scoringRules } from "@/lib/scoring";
 
-const steps = [
-  ["01", "Name the entry", "One bracket per player."],
-  ["02", "Pick the field", "Groups first, knockout next."],
-  ["03", "Track the pool", "Standings stay easy to read."],
+const pickSteps = [
+  ["1", "Pick group finishers", "Choose 1st, 2nd, and 3rd for every group."],
+  ["2", "Advance the bracket", "Pick winners round by round until the final."],
+  ["3", "Submit once", "Your entry goes into the shared pool leaderboard."],
 ];
 
-const previewRows = [
-  ["Maya", "76", "Complete"],
-  ["Uncle Rob", "71", "Complete"],
-  ["Jess", "68", "Complete"],
+const quickRules = [
+  "Exact knockout scores earn a bonus.",
+  "Winner picks still matter most.",
+  "Highest total points wins.",
+  "Offline pools stay outside the app.",
 ];
 
 export default function Home() {
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="grid lg:grid-cols-[1fr_420px]">
-          <div className="p-6 sm:p-10 lg:p-12">
-            <div className="inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
-              Casual private pool
-            </div>
-            <h1 className="mt-6 max-w-3xl text-5xl font-black tracking-tight text-zinc-950 sm:text-6xl">
-              World Cup picks without sportsbook noise.
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="bg-zinc-950 p-6 text-white sm:p-10 lg:p-12">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-200">World Cup pool</p>
+            <h1 className="mt-4 max-w-xl text-5xl font-black tracking-tight sm:text-6xl">
+              Simple picks. Clear scoring.
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-zinc-600">
-              Make your picks, submit your bracket, and follow the standings with your group.
+            <p className="mt-5 max-w-xl text-lg leading-8 text-zinc-300">
+              Fill out one bracket, submit it to the pool, and follow the standings.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="/bracket">Create Bracket</ButtonLink>
               <ButtonLink href="/leaderboard" variant="secondary">
-                View Leaderboard
-              </ButtonLink>
-              <ButtonLink href="/rules" variant="secondary">
-                Rules
+                Leaderboard
               </ButtonLink>
             </div>
           </div>
 
-          <aside className="border-t border-zinc-200 bg-zinc-950 p-5 text-white lg:border-l lg:border-t-0">
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <div className="flex items-center justify-between">
-                <p className="font-black">Pool Snapshot</p>
-                <span className="rounded-md bg-amber-300 px-2 py-1 text-xs font-black text-zinc-950">Mock</span>
+          <div className="p-5 sm:p-8 lg:p-10">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Scoring</p>
+                <h2 className="mt-2 text-3xl font-black text-zinc-950">How points work</h2>
               </div>
-              <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-                {[
-                  ["48", "Teams"],
-                  ["31", "Picks"],
-                  ["12", "Champion pts"],
-                ].map(([value, label]) => (
-                  <div key={label} className="rounded-md bg-white p-3 text-zinc-950">
-                    <p className="text-2xl font-black">{value}</p>
-                    <p className="mt-1 text-xs font-bold text-zinc-500">{label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-5 space-y-2">
-                {previewRows.map(([name, points, status], index) => (
-                  <div key={name} className="grid grid-cols-[36px_1fr_56px] items-center gap-3 rounded-md bg-white/10 px-3 py-3">
-                    <span className="grid size-8 place-items-center rounded-md bg-emerald-500 text-sm font-black">
-                      {index + 1}
-                    </span>
-                    <span>
-                      <span className="block font-bold">{name}</span>
-                      <span className="block text-xs text-zinc-300">{status}</span>
-                    </span>
-                    <span className="text-right font-black text-amber-200">{points}</span>
-                  </div>
-                ))}
-              </div>
+              <span className="rounded-md bg-amber-300 px-3 py-2 text-sm font-black text-zinc-950">
+                12 pts max pick
+              </span>
             </div>
-          </aside>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {scoringRules.map((rule) => (
+                <div key={rule.label} className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-[#fbfaf3] px-4 py-3">
+                  <span className="text-sm font-black text-zinc-800">{rule.label}</span>
+                  <span className="grid size-10 place-items-center rounded-md bg-zinc-950 text-sm font-black text-white">
+                    {rule.points}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {steps.map(([number, title, description]) => (
-          <div key={title} className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <span className="text-sm font-black text-emerald-700">{number}</span>
-            <h2 className="mt-3 text-xl font-black text-zinc-950">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-600">{description}</p>
+      <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">How to play</p>
+              <h2 className="mt-2 text-3xl font-black text-zinc-950">Three quick steps</h2>
+            </div>
           </div>
-        ))}
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {pickSteps.map(([number, title, description]) => (
+              <div key={title} className="rounded-lg border border-zinc-200 bg-[#fbfaf3] p-4">
+                <span className="grid size-9 place-items-center rounded-md bg-emerald-600 text-sm font-black text-white">
+                  {number}
+                </span>
+                <h3 className="mt-4 text-lg font-black text-zinc-950">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-600">{description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Keep it clean</p>
+          <h2 className="mt-2 text-3xl font-black text-zinc-950">Pool basics</h2>
+          <div className="mt-5 space-y-3">
+            {quickRules.map((rule) => (
+              <div key={rule} className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
+                <span className="grid size-7 place-items-center rounded-md bg-zinc-950 text-xs font-black text-white">✓</span>
+                <span className="text-sm font-bold text-zinc-700">{rule}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
     </div>
   );

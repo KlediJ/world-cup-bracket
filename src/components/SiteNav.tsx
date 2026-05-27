@@ -4,7 +4,6 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/bracket", label: "Bracket" },
   { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/rules", label: "Rules" },
 ];
 
 export function SiteNav() {

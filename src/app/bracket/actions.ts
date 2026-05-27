@@ -5,12 +5,13 @@ import { teamsById } from "@/data/teams";
 import { getDb } from "@/db/client";
 import { ensureDefaultPool } from "@/db/queries";
 import { brackets, players } from "@/db/schema";
-import type { GroupPick } from "@/types/bracket";
+import type { GroupPick, ScorePick } from "@/types/bracket";
 
 type SubmitBracketInput = {
   playerName: string;
   groupPicks: Record<string, GroupPick>;
   knockoutPicks: Record<string, string>;
+  knockoutScores: Record<string, ScorePick>;
 };
 
 export type SubmitBracketResult = {
@@ -54,6 +55,7 @@ export async function submitBracket(input: SubmitBracketInput): Promise<SubmitBr
       championTeamId: input.knockoutPicks.champion,
       groupPicks: input.groupPicks,
       knockoutPicks: input.knockoutPicks,
+      knockoutScores: input.knockoutScores,
     });
 
     revalidatePath("/leaderboard");

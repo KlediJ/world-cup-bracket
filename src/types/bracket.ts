@@ -24,10 +24,16 @@ export type KnockoutPick = {
   winnerId: string;
 };
 
+export type ScorePick = {
+  teamAScore: number | null;
+  teamBScore: number | null;
+};
+
 export type BracketSubmission = {
   playerName: string;
   groupPicks: Record<string, GroupPick>;
   knockoutPicks: Record<string, string>;
+  knockoutScores: Record<string, ScorePick>;
   submittedAt: string;
 };
 

@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { submitBracket } from "@/app/bracket/actions";
 import { groups } from "@/data/groups";
 import { teamsById } from "@/data/teams";
-import type { BracketSubmission, GroupPick } from "@/types/bracket";
+import type { BracketSubmission, GroupPick, ScorePick } from "@/types/bracket";
 
 const emptyGroupPick: GroupPick = {
   winnerId: "",
@@ -53,7 +53,7 @@ function getGroupPick(groupPicks: Record<string, GroupPick>, groupId: string, sl
   return groupPicks[groupId]?.[slot] ?? "";
 }
 
-function removePicks(current: Record<string, string>, matchIds: string[]) {
+function removeEntries<T>(current: Record<string, T>, matchIds: string[]) {
   const next = { ...current };
 
   for (const matchId of matchIds) {
@@ -93,12 +93,17 @@ function countCompletedPicks(picks: Record<string, string>) {
   return Object.values(picks).filter(Boolean).length;
 }
 
+function countCompletedScores(scores: Record<string, ScorePick>) {
+  return Object.values(scores).filter((score) => score.teamAScore !== null && score.teamBScore !== null).length;
+}
+
 export function BracketBuilder() {
   const [isPending, startTransition] = useTransition();
   const [activeStep, setActiveStep] = useState<StepId>("entry");
   const [playerName, setPlayerName] = useState("");
   const [groupPicks, setGroupPicks] = useState<Record<string, GroupPick>>({});
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({});
+  const [knockoutScores, setKnockoutScores] = useState<Record<string, ScorePick>>({});
   const [statusMessage, setStatusMessage] = useState("");
 
   const knockoutRounds = useMemo<KnockoutRoundConfig[]>(() => {
@@ -148,6 +153,7 @@ export function BracketBuilder() {
     (group) => groupPicks[group.id]?.winnerId && groupPicks[group.id]?.runnerUpId && groupPicks[group.id]?.thirdPlaceId,
   ).length;
   const completedKnockoutPicks = countCompletedPicks(knockoutPicks);
+  const completedScorePicks = countCompletedScores(knockoutScores);
   const championName = getTeamName(knockoutPicks.champion, "No champion picked");
   const canSubmit = playerName.trim().length > 0 && completedGroups === groups.length && Boolean(knockoutPicks.champion);
 
@@ -196,12 +202,13 @@ export function BracketBuilder() {
       };
     });
     setKnockoutPicks({});
+    setKnockoutScores({});
     setStatusMessage("Knockout picks reset because a group-stage pick changed.");
   }
 
   function updateKnockoutPick(matchId: string, teamId: string) {
     setKnockoutPicks((current) => {
-      const next = removePicks(current, getDownstreamMatches(matchId));
+      const next = removeEntries(current, getDownstreamMatches(matchId));
 
       if (teamId) {
         next[matchId] = teamId;
@@ -211,7 +218,18 @@ export function BracketBuilder() {
 
       return next;
     });
+    setKnockoutScores((current) => removeEntries(current, getDownstreamMatches(matchId)));
     setStatusMessage("");
+  }
+
+  function updateKnockoutScore(matchId: string, field: keyof ScorePick, value: number | null) {
+    setKnockoutScores((current) => ({
+      ...current,
+      [matchId]: {
+        ...(current[matchId] ?? { teamAScore: null, teamBScore: null }),
+        [field]: value,
+      },
+    }));
   }
 
   function handleSubmitBracket() {
@@ -219,6 +237,7 @@ export function BracketBuilder() {
       playerName: playerName.trim(),
       groupPicks,
       knockoutPicks,
+      knockoutScores,
       submittedAt: new Date().toISOString(),
     };
 
@@ -232,6 +251,7 @@ export function BracketBuilder() {
     setPlayerName("");
     setGroupPicks({});
     setKnockoutPicks({});
+    setKnockoutScores({});
     setActiveStep("entry");
     setStatusMessage("Bracket cleared.");
   }
@@ -265,7 +285,13 @@ export function BracketBuilder() {
           ) : null}
 
           {activeStep === "knockout" ? (
-            <KnockoutStep rounds={knockoutRounds} picks={knockoutPicks} onPick={updateKnockoutPick} />
+            <KnockoutStep
+              rounds={knockoutRounds}
+              picks={knockoutPicks}
+              scores={knockoutScores}
+              onPick={updateKnockoutPick}
+              onScoreChange={updateKnockoutScore}
+            />
           ) : null}
 
           {activeStep === "review" ? (
@@ -274,6 +300,7 @@ export function BracketBuilder() {
               groupPicks={groupPicks}
               completedGroups={completedGroups}
               completedKnockoutPicks={completedKnockoutPicks}
+              completedScorePicks={completedScorePicks}
               championName={championName}
               canSubmit={canSubmit}
               isSubmitting={isPending}
@@ -493,10 +520,12 @@ function TeamPickRow({
 type KnockoutStepProps = {
   rounds: KnockoutRoundConfig[];
   picks: Record<string, string>;
+  scores: Record<string, ScorePick>;
   onPick: (matchId: string, teamId: string) => void;
+  onScoreChange: (matchId: string, field: keyof ScorePick, value: number | null) => void;
 };
 
-function KnockoutStep({ rounds, picks, onPick }: KnockoutStepProps) {
+function KnockoutStep({ rounds, picks, scores, onPick, onScoreChange }: KnockoutStepProps) {
   const [activeRoundIndex, setActiveRoundIndex] = useState(0);
   const activeRound = rounds[activeRoundIndex];
   const activeRoundPicks = activeRound.matches.filter((match) => picks[match.id]).length;
@@ -588,7 +617,14 @@ function KnockoutStep({ rounds, picks, onPick }: KnockoutStepProps) {
           <div className="min-w-0 rounded-lg border border-zinc-200 bg-[#fbfaf3] p-4 shadow-sm">
             <div className={`grid gap-3 ${activeRound.matches.length > 8 ? "xl:grid-cols-2" : "md:grid-cols-2"}`}>
               {activeRound.matches.map((match) => (
-                <MatchCard key={match.id} match={match} selectedTeamId={picks[match.id] ?? ""} onPick={handlePick} />
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  selectedTeamId={picks[match.id] ?? ""}
+                  score={scores[match.id] ?? { teamAScore: null, teamBScore: null }}
+                  onPick={handlePick}
+                  onScoreChange={onScoreChange}
+                />
               ))}
             </div>
           </div>
@@ -645,10 +681,12 @@ function MiniRoundSummary({ round, picks }: { round: KnockoutRoundConfig; picks:
 type MatchCardProps = {
   match: Match;
   selectedTeamId: string;
+  score: ScorePick;
   onPick: (matchId: string, teamId: string) => void;
+  onScoreChange: (matchId: string, field: keyof ScorePick, value: number | null) => void;
 };
 
-function MatchCard({ match, selectedTeamId, onPick }: MatchCardProps) {
+function MatchCard({ match, selectedTeamId, score, onPick, onScoreChange }: MatchCardProps) {
   const options = [match.teamA, match.teamB].filter(Boolean) as string[];
 
   return (
@@ -690,7 +728,53 @@ function MatchCard({ match, selectedTeamId, onPick }: MatchCardProps) {
           </p>
         )}
       </div>
+      {options.length === 2 ? (
+        <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+          <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Exact score bonus</p>
+          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+            <ScoreInput
+              label={getTeamCode(options[0])}
+              value={score.teamAScore}
+              onChange={(value) => onScoreChange(match.id, "teamAScore", value)}
+            />
+            <span className="pb-2 text-sm font-black text-zinc-400">-</span>
+            <ScoreInput
+              label={getTeamCode(options[1])}
+              value={score.teamBScore}
+              onChange={(value) => onScoreChange(match.id, "teamBScore", value)}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function ScoreInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <label className="text-xs font-black text-zinc-600">
+      {label}
+      <input
+        type="number"
+        inputMode="numeric"
+        min="0"
+        max="20"
+        value={value ?? ""}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          onChange(nextValue === "" ? null : Number(nextValue));
+        }}
+        className="mt-1 h-10 w-full rounded-md border border-zinc-300 bg-white px-2 text-center text-sm font-black text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+      />
+    </label>
   );
 }
 
@@ -699,6 +783,7 @@ type ReviewStepProps = {
   groupPicks: Record<string, GroupPick>;
   completedGroups: number;
   completedKnockoutPicks: number;
+  completedScorePicks: number;
   championName: string;
   canSubmit: boolean;
   isSubmitting: boolean;
@@ -711,6 +796,7 @@ function ReviewStep({
   groupPicks,
   completedGroups,
   completedKnockoutPicks,
+  completedScorePicks,
   championName,
   canSubmit,
   isSubmitting,
@@ -743,6 +829,7 @@ function ReviewStep({
           <SummaryLine label="Player" value={playerName || "Name needed"} />
           <SummaryLine label="Groups" value={`${completedGroups} of ${groups.length}`} />
           <SummaryLine label="Knockout picks" value={`${completedKnockoutPicks} of 31`} />
+          <SummaryLine label="Exact scores" value={`${completedScorePicks} optional`} />
           <SummaryLine label="Champion" value={championName} />
         </div>
         <div className="mt-5 flex flex-col gap-3">

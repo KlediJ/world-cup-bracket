@@ -1,8 +1,9 @@
 import { relations } from "drizzle-orm";
 import { integer, jsonb, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
-import type { GroupPick } from "@/types/bracket";
+import type { GroupPick, ScorePick } from "@/types/bracket";
 
 export type StoredKnockoutPicks = Record<string, string>;
+export type StoredKnockoutScores = Record<string, ScorePick>;
 export type StoredGroupPicks = Record<string, GroupPick>;
 
 export const pools = pgTable(
@@ -36,6 +37,7 @@ export const brackets = pgTable("brackets", {
   championTeamId: varchar("champion_team_id", { length: 80 }).notNull(),
   groupPicks: jsonb("group_picks").$type<StoredGroupPicks>().notNull(),
   knockoutPicks: jsonb("knockout_picks").$type<StoredKnockoutPicks>().notNull(),
+  knockoutScores: jsonb("knockout_scores").$type<StoredKnockoutScores>().default({}).notNull(),
   points: integer("points").default(0).notNull(),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
