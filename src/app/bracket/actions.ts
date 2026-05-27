@@ -1,5 +1,6 @@
 "use server";
 
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { teamsById } from "@/data/teams";
 import { getDb } from "@/db/client";
@@ -9,7 +10,9 @@ import type { GroupPick, ScorePick } from "@/types/bracket";
 
 type SubmitBracketInput = {
   playerName: string;
+  playerEmail: string;
   groupPicks: Record<string, GroupPick>;
+  thirdPlaceAdvancers: string[];
   knockoutPicks: Record<string, string>;
   knockoutScores: Record<string, ScorePick>;
 };
@@ -24,8 +27,16 @@ function validateSubmission(input: SubmitBracketInput) {
     return "Enter a player name.";
   }
 
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.playerEmail.trim())) {
+    return "Enter a valid email address.";
+  }
+
   if (!input.knockoutPicks.champion || !teamsById.has(input.knockoutPicks.champion)) {
     return "Pick a champion.";
+  }
+
+  if (input.thirdPlaceAdvancers.length !== 8) {
+    return "Pick the 8 third-place teams that advance.";
   }
 
   return null;
@@ -41,11 +52,24 @@ export async function submitBracket(input: SubmitBracketInput): Promise<SubmitBr
   try {
     const db = getDb();
     const pool = await ensureDefaultPool();
+    const normalizedEmail = input.playerEmail.trim().toLowerCase();
+    const [existingBracket] = await db
+      .select({ id: brackets.id })
+      .from(brackets)
+      .innerJoin(players, eq(brackets.playerId, players.id))
+      .where(and(eq(players.poolId, pool.id), eq(players.email, normalizedEmail)))
+      .limit(1);
+
+    if (existingBracket) {
+      return { ok: false, message: "That email already submitted a bracket for this pool." };
+    }
+
     const [player] = await db
       .insert(players)
       .values({
         poolId: pool.id,
         name: input.playerName.trim(),
+        email: normalizedEmail,
       })
       .returning();
 
@@ -54,6 +78,7 @@ export async function submitBracket(input: SubmitBracketInput): Promise<SubmitBr
       playerId: player.id,
       championTeamId: input.knockoutPicks.champion,
       groupPicks: input.groupPicks,
+      thirdPlaceAdvancers: input.thirdPlaceAdvancers,
       knockoutPicks: input.knockoutPicks,
       knockoutScores: input.knockoutScores,
     });

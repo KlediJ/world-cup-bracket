@@ -17,14 +17,19 @@ export const pools = pgTable(
   (table) => [uniqueIndex("pools_code_unique").on(table.code)],
 );
 
-export const players = pgTable("players", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  poolId: uuid("pool_id")
-    .notNull()
-    .references(() => pools.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 120 }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const players = pgTable(
+  "players",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    poolId: uuid("pool_id")
+      .notNull()
+      .references(() => pools.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("players_pool_email_unique").on(table.poolId, table.email)],
+);
 
 export const brackets = pgTable("brackets", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -36,6 +41,7 @@ export const brackets = pgTable("brackets", {
     .references(() => players.id, { onDelete: "cascade" }),
   championTeamId: varchar("champion_team_id", { length: 80 }).notNull(),
   groupPicks: jsonb("group_picks").$type<StoredGroupPicks>().notNull(),
+  thirdPlaceAdvancers: jsonb("third_place_advancers").$type<string[]>().default([]).notNull(),
   knockoutPicks: jsonb("knockout_picks").$type<StoredKnockoutPicks>().notNull(),
   knockoutScores: jsonb("knockout_scores").$type<StoredKnockoutScores>().default({}).notNull(),
   points: integer("points").default(0).notNull(),

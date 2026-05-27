@@ -4,6 +4,7 @@ export const scoringRules = [
   { label: "Correct group winner", points: 3 },
   { label: "Correct group runner-up", points: 2 },
   { label: "Correct group third place", points: 1 },
+  { label: "Correct third-place advancer", points: 1 },
   { label: "Correct Round of 32 winner", points: 3 },
   { label: "Correct Round of 16 winner", points: 4 },
   { label: "Correct quarterfinal winner", points: 6 },
@@ -18,6 +19,7 @@ export const scoringValues = {
   groupWinner: 3,
   groupRunnerUp: 2,
   groupThirdPlace: 1,
+  thirdPlaceAdvancer: 1,
   roundOf32Winner: 3,
   roundOf16Winner: 4,
   quarterfinalWinner: 6,
@@ -28,12 +30,14 @@ export const scoringValues = {
 
 export type BracketScoreInput = {
   groupPicks: Record<string, GroupPick>;
+  thirdPlaceAdvancers: string[];
   knockoutPicks: Record<string, string>;
   knockoutScores: Record<string, ScorePick>;
 };
 
 export type BracketResults = {
   groups: Record<string, GroupPick>;
+  thirdPlaceAdvancers: string[];
   knockoutWinners: Record<string, string>;
   knockoutScores: Record<string, ScorePick>;
 };
@@ -91,6 +95,12 @@ export function calculateBracketScore(input: BracketScoreInput, results: Bracket
 
     if (pick.thirdPlaceId === result.thirdPlaceId) {
       total += scoringValues.groupThirdPlace;
+    }
+  }
+
+  for (const teamId of input.thirdPlaceAdvancers) {
+    if (results.thirdPlaceAdvancers.includes(teamId)) {
+      total += scoringValues.thirdPlaceAdvancer;
     }
   }
 

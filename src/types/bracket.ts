@@ -31,7 +31,9 @@ export type ScorePick = {
 
 export type BracketSubmission = {
   playerName: string;
+  playerEmail: string;
   groupPicks: Record<string, GroupPick>;
+  thirdPlaceAdvancers: string[];
   knockoutPicks: Record<string, string>;
   knockoutScores: Record<string, ScorePick>;
   submittedAt: string;

@@ -101,16 +101,18 @@ export function BracketBuilder() {
   const [isPending, startTransition] = useTransition();
   const [activeStep, setActiveStep] = useState<StepId>("entry");
   const [playerName, setPlayerName] = useState("");
+  const [playerEmail, setPlayerEmail] = useState("");
   const [groupPicks, setGroupPicks] = useState<Record<string, GroupPick>>({});
+  const [thirdPlaceAdvancers, setThirdPlaceAdvancers] = useState<string[]>([]);
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({});
   const [knockoutScores, setKnockoutScores] = useState<Record<string, ScorePick>>({});
   const [statusMessage, setStatusMessage] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const knockoutRounds = useMemo<KnockoutRoundConfig[]>(() => {
     const groupWinners = groups.map((group) => getGroupPick(groupPicks, group.id, "winnerId"));
     const runnersUp = groups.map((group) => getGroupPick(groupPicks, group.id, "runnerUpId"));
-    const thirdPlaceTeams = groups.slice(0, 8).map((group) => getGroupPick(groupPicks, group.id, "thirdPlaceId"));
-    const roundOf32Teams = [...groupWinners, ...runnersUp, ...thirdPlaceTeams];
+    const roundOf32Teams = [...groupWinners, ...runnersUp, ...thirdPlaceAdvancers];
 
     const roundOf32Matches = Array.from({ length: 16 }, (_, index) => ({
       id: `r32-${index + 1}`,
@@ -147,19 +149,26 @@ export function BracketBuilder() {
       { title: "Semifinals", shortTitle: "SF", matches: semifinalMatches },
       { title: "Champion", shortTitle: "Final", matches: [{ id: "champion", label: "Final winner", teamA: knockoutPicks["sf-1"], teamB: knockoutPicks["sf-2"] }] },
     ];
-  }, [groupPicks, knockoutPicks]);
+  }, [groupPicks, knockoutPicks, thirdPlaceAdvancers]);
 
   const completedGroups = groups.filter(
     (group) => groupPicks[group.id]?.winnerId && groupPicks[group.id]?.runnerUpId && groupPicks[group.id]?.thirdPlaceId,
   ).length;
   const completedKnockoutPicks = countCompletedPicks(knockoutPicks);
   const completedScorePicks = countCompletedScores(knockoutScores);
+  const completedThirdPlaceAdvancers = thirdPlaceAdvancers.length;
   const championName = getTeamName(knockoutPicks.champion, "No champion picked");
-  const canSubmit = playerName.trim().length > 0 && completedGroups === groups.length && Boolean(knockoutPicks.champion);
+  const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
+  const canSubmit =
+    playerName.trim().length > 0 &&
+    hasValidEmail &&
+    completedGroups === groups.length &&
+    completedThirdPlaceAdvancers === 8 &&
+    Boolean(knockoutPicks.champion);
 
   const stepState = {
-    entry: playerName.trim().length > 0,
-    groups: completedGroups === groups.length,
+    entry: playerName.trim().length > 0 && hasValidEmail,
+    groups: completedGroups === groups.length && completedThirdPlaceAdvancers === 8,
     knockout: Boolean(knockoutPicks.champion),
     review: canSubmit,
   };
@@ -179,7 +188,14 @@ export function BracketBuilder() {
     setStatusMessage("");
   }
 
+  function updatePlayerEmail(email: string) {
+    setPlayerEmail(email);
+    setStatusMessage("");
+  }
+
   function updateGroupPick(groupId: string, field: keyof GroupPick, teamId: string) {
+    const previousThirdPlaceId = groupPicks[groupId]?.thirdPlaceId;
+
     setGroupPicks((current) => {
       const currentPick = current[groupId] ?? emptyGroupPick;
       const nextPick = { ...currentPick };
@@ -201,9 +217,39 @@ export function BracketBuilder() {
         [groupId]: nextPick,
       };
     });
+    setThirdPlaceAdvancers((current) =>
+      current.filter((selectedTeamId) => {
+        if (selectedTeamId === previousThirdPlaceId) {
+          return false;
+        }
+
+        if (field !== "thirdPlaceId" && selectedTeamId === teamId) {
+          return false;
+        }
+
+        return true;
+      }),
+    );
     setKnockoutPicks({});
     setKnockoutScores({});
     setStatusMessage("Knockout picks reset because a group-stage pick changed.");
+  }
+
+  function toggleThirdPlaceAdvancer(teamId: string) {
+    setThirdPlaceAdvancers((current) => {
+      if (current.includes(teamId)) {
+        return current.filter((selectedTeamId) => selectedTeamId !== teamId);
+      }
+
+      if (current.length >= 8) {
+        return current;
+      }
+
+      return [...current, teamId];
+    });
+    setKnockoutPicks({});
+    setKnockoutScores({});
+    setStatusMessage("Knockout picks reset because the third-place table changed.");
   }
 
   function updateKnockoutPick(matchId: string, teamId: string) {
@@ -235,7 +281,9 @@ export function BracketBuilder() {
   function handleSubmitBracket() {
     const submission: BracketSubmission = {
       playerName: playerName.trim(),
+      playerEmail: playerEmail.trim().toLowerCase(),
       groupPicks,
+      thirdPlaceAdvancers,
       knockoutPicks,
       knockoutScores,
       submittedAt: new Date().toISOString(),
@@ -244,16 +292,20 @@ export function BracketBuilder() {
     startTransition(async () => {
       const result = await submitBracket(submission);
       setStatusMessage(result.message);
+      setIsSubmitted(result.ok);
     });
   }
 
   function clearBracket() {
     setPlayerName("");
+    setPlayerEmail("");
     setGroupPicks({});
+    setThirdPlaceAdvancers([]);
     setKnockoutPicks({});
     setKnockoutScores({});
     setActiveStep("entry");
     setStatusMessage("Bracket cleared.");
+    setIsSubmitted(false);
   }
 
   return (
@@ -277,11 +329,22 @@ export function BracketBuilder() {
 
         <div className="p-4 sm:p-6">
           {activeStep === "entry" ? (
-            <EntryStep playerName={playerName} onPlayerNameChange={updatePlayerName} />
+            <EntryStep
+              playerName={playerName}
+              playerEmail={playerEmail}
+              onPlayerNameChange={updatePlayerName}
+              onPlayerEmailChange={updatePlayerEmail}
+            />
           ) : null}
 
           {activeStep === "groups" ? (
-            <GroupStageStep groupPicks={groupPicks} completedGroups={completedGroups} onPick={updateGroupPick} />
+            <GroupStageStep
+              groupPicks={groupPicks}
+              completedGroups={completedGroups}
+              thirdPlaceAdvancers={thirdPlaceAdvancers}
+              onPick={updateGroupPick}
+              onToggleThirdPlaceAdvancer={toggleThirdPlaceAdvancer}
+            />
           ) : null}
 
           {activeStep === "knockout" ? (
@@ -297,13 +360,16 @@ export function BracketBuilder() {
           {activeStep === "review" ? (
             <ReviewStep
               playerName={playerName}
+              playerEmail={playerEmail}
               groupPicks={groupPicks}
               completedGroups={completedGroups}
+              completedThirdPlaceAdvancers={completedThirdPlaceAdvancers}
               completedKnockoutPicks={completedKnockoutPicks}
               completedScorePicks={completedScorePicks}
               championName={championName}
               canSubmit={canSubmit}
               isSubmitting={isPending}
+              isSubmitted={isSubmitted}
               onSubmit={handleSubmitBracket}
               onClear={clearBracket}
             />
@@ -335,7 +401,7 @@ function getStepTitle(step: StepId) {
 function getStepHelp(step: StepId) {
   const help: Record<StepId, string> = {
     entry: "One person, one bracket.",
-    groups: "Pick 1st, 2nd, and 3rd.",
+    groups: "Pick group finishers and the 8 third-place advancers.",
     knockout: "Advance winners until you choose a champion.",
     review: "Confirm the picks before submission.",
   };
@@ -394,29 +460,45 @@ function BracketProgress({ activeStep, stepState, onSelectStep }: BracketProgres
 
 type EntryStepProps = {
   playerName: string;
+  playerEmail: string;
   onPlayerNameChange: (name: string) => void;
+  onPlayerEmailChange: (email: string) => void;
 };
 
-function EntryStep({ playerName, onPlayerNameChange }: EntryStepProps) {
+function EntryStep({ playerName, playerEmail, onPlayerNameChange, onPlayerEmailChange }: EntryStepProps) {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-      <div>
-        <label htmlFor="playerName" className="text-sm font-black text-zinc-900">
-          Player name
-        </label>
-        <input
-          id="playerName"
-          value={playerName}
-          onChange={(event) => onPlayerNameChange(event.target.value)}
-          placeholder="Example: Alex"
-          className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-        />
+      <div className="grid gap-4">
+        <div>
+          <label htmlFor="playerName" className="text-sm font-black text-zinc-900">
+            Player name
+          </label>
+          <input
+            id="playerName"
+            value={playerName}
+            onChange={(event) => onPlayerNameChange(event.target.value)}
+            placeholder="Example: Alex"
+            className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          />
+        </div>
+        <div>
+          <label htmlFor="playerEmail" className="text-sm font-black text-zinc-900">
+            Email address
+          </label>
+          <input
+            id="playerEmail"
+            type="email"
+            value={playerEmail}
+            onChange={(event) => onPlayerEmailChange(event.target.value)}
+            placeholder="alex@example.com"
+            className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          />
+        </div>
       </div>
       <div className="rounded-lg border border-dashed border-zinc-300 bg-[#fbfaf3] p-4">
-        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Pool note</p>
+        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">One entry per email</p>
         <p className="mt-2 text-sm leading-6 text-zinc-700">
-          Keep this simple for players: one entry name first, then the bracket. Account handling and shared submissions
-          can be added after the flow feels right.
+          Brackets are final after submission. The leaderboard shows player names only.
         </p>
       </div>
     </div>
@@ -426,17 +508,37 @@ function EntryStep({ playerName, onPlayerNameChange }: EntryStepProps) {
 type GroupStageStepProps = {
   groupPicks: Record<string, GroupPick>;
   completedGroups: number;
+  thirdPlaceAdvancers: string[];
   onPick: (groupId: string, field: keyof GroupPick, teamId: string) => void;
+  onToggleThirdPlaceAdvancer: (teamId: string) => void;
 };
 
-function GroupStageStep({ groupPicks, completedGroups, onPick }: GroupStageStepProps) {
+function GroupStageStep({
+  groupPicks,
+  completedGroups,
+  thirdPlaceAdvancers,
+  onPick,
+  onToggleThirdPlaceAdvancer,
+}: GroupStageStepProps) {
+  const thirdPlaceTeams = groups
+    .map((group) => ({
+      groupName: group.name,
+      teamId: groupPicks[group.id]?.thirdPlaceId ?? "",
+    }))
+    .filter((entry) => entry.teamId);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-semibold text-zinc-600">Tap 1, 2, and 3 beside each team. Keep moving group by group.</p>
-        <p className="w-fit rounded-md bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800">
-          {completedGroups} / {groups.length}
-        </p>
+        <p className="text-sm font-semibold text-zinc-600">Pick the top three in every group, then choose the 8 third-place teams that advance.</p>
+        <div className="flex flex-wrap gap-2">
+          <p className="w-fit rounded-md bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800">
+            Groups {completedGroups} / {groups.length}
+          </p>
+          <p className="w-fit rounded-md bg-amber-100 px-3 py-2 text-sm font-black text-zinc-900">
+            Third-place {thirdPlaceAdvancers.length} / 8
+          </p>
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {groups.map((group) => {
@@ -462,7 +564,73 @@ function GroupStageStep({ groupPicks, completedGroups, onPick }: GroupStageStepP
           );
         })}
       </div>
+      <ThirdPlaceTable
+        thirdPlaceTeams={thirdPlaceTeams}
+        selectedTeamIds={thirdPlaceAdvancers}
+        onToggle={onToggleThirdPlaceAdvancer}
+      />
     </div>
+  );
+}
+
+type ThirdPlaceTableProps = {
+  thirdPlaceTeams: Array<{
+    groupName: string;
+    teamId: string;
+  }>;
+  selectedTeamIds: string[];
+  onToggle: (teamId: string) => void;
+};
+
+function ThirdPlaceTable({ thirdPlaceTeams, selectedTeamIds, onToggle }: ThirdPlaceTableProps) {
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-2 border-b border-zinc-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Third-place table</p>
+          <h3 className="mt-1 text-2xl font-black text-zinc-950">Choose 8 of 12 to advance</h3>
+        </div>
+        <p className="rounded-md bg-zinc-950 px-3 py-2 text-sm font-black text-white">
+          {selectedTeamIds.length} selected
+        </p>
+      </div>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {thirdPlaceTeams.map((entry) => {
+          const isSelected = selectedTeamIds.includes(entry.teamId);
+          const isLocked = selectedTeamIds.length >= 8 && !isSelected;
+
+          return (
+            <button
+              key={`${entry.groupName}-${entry.teamId}`}
+              type="button"
+              onClick={() => onToggle(entry.teamId)}
+              disabled={isLocked}
+              className={`grid min-h-16 grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
+                isSelected
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-950"
+                  : "border-zinc-200 bg-[#fbfaf3] text-zinc-800 hover:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-45"
+              }`}
+            >
+              <span className="grid size-10 place-items-center rounded bg-white text-xl shadow-sm">{getTeamFlag(entry.teamId)}</span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black">{getTeamName(entry.teamId)}</span>
+                <span className="block text-xs font-bold text-zinc-500">
+                  {entry.groupName} · {getTeamCode(entry.teamId)}
+                </span>
+              </span>
+              <span className={`rounded px-2 py-1 text-xs font-black ${isSelected ? "bg-emerald-600 text-white" : "bg-white text-zinc-500"}`}>
+                {isSelected ? "In" : "Out"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {thirdPlaceTeams.length < groups.length ? (
+        <p className="mt-3 text-sm font-semibold text-zinc-500">Finish all group third-place picks to complete this table.</p>
+      ) : null}
+    </section>
   );
 }
 
@@ -780,26 +948,32 @@ function ScoreInput({
 
 type ReviewStepProps = {
   playerName: string;
+  playerEmail: string;
   groupPicks: Record<string, GroupPick>;
   completedGroups: number;
+  completedThirdPlaceAdvancers: number;
   completedKnockoutPicks: number;
   completedScorePicks: number;
   championName: string;
   canSubmit: boolean;
   isSubmitting: boolean;
+  isSubmitted: boolean;
   onSubmit: () => void;
   onClear: () => void;
 };
 
 function ReviewStep({
   playerName,
+  playerEmail,
   groupPicks,
   completedGroups,
+  completedThirdPlaceAdvancers,
   completedKnockoutPicks,
   completedScorePicks,
   championName,
   canSubmit,
   isSubmitting,
+  isSubmitted,
   onSubmit,
   onClear,
 }: ReviewStepProps) {
@@ -827,7 +1001,9 @@ function ReviewStep({
         <h3 className="text-lg font-black text-zinc-950">Entry summary</h3>
         <div className="mt-4 space-y-3 text-sm text-zinc-700">
           <SummaryLine label="Player" value={playerName || "Name needed"} />
+          <SummaryLine label="Email" value={playerEmail || "Email needed"} />
           <SummaryLine label="Groups" value={`${completedGroups} of ${groups.length}`} />
+          <SummaryLine label="Third-place advancers" value={`${completedThirdPlaceAdvancers} of 8`} />
           <SummaryLine label="Knockout picks" value={`${completedKnockoutPicks} of 31`} />
           <SummaryLine label="Exact scores" value={`${completedScorePicks} optional`} />
           <SummaryLine label="Champion" value={championName} />
@@ -836,21 +1012,23 @@ function ReviewStep({
           <button
             type="button"
             onClick={onSubmit}
-            disabled={!canSubmit || isSubmitting}
+            disabled={!canSubmit || isSubmitting || isSubmitted}
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
           >
-            {isSubmitting ? "Submitting..." : "Submit Bracket"}
+            {isSubmitted ? "Submitted" : isSubmitting ? "Submitting..." : "Submit Bracket"}
           </button>
-          <button
-            type="button"
-            onClick={onClear}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-800 transition hover:border-emerald-600 hover:text-emerald-700"
-          >
-            Start Over
-          </button>
+          {!isSubmitted ? (
+            <button
+              type="button"
+              onClick={onClear}
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-800 transition hover:border-emerald-600 hover:text-emerald-700"
+            >
+              Start Over
+            </button>
+          ) : null}
         </div>
         {!canSubmit ? (
-          <p className="mt-3 text-sm leading-6 text-zinc-600">Complete your name, all groups, and champion pick before submitting.</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">Complete your name, email, all groups, 8 third-place advancers, and champion pick before submitting.</p>
         ) : null}
       </aside>
     </div>
