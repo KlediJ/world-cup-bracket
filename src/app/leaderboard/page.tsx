@@ -1,23 +1,25 @@
 import { PageHeader } from "@/components/PageHeader";
-import { mockLeaderboard } from "@/data/mockLeaderboard";
+import { getLeaderboard } from "@/db/queries";
 
-export default function LeaderboardPage() {
+export default async function LeaderboardPage() {
+  const leaderboard = await getLeaderboard();
+
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Leaderboard"
         title="Pool standings"
-        description="Sample standings show how the friend pool will feel once real picks and scores are added."
+        description="Submitted brackets appear here as the pool fills in."
       />
 
       <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-black text-zinc-950">Mock leaderboard</h2>
-            <p className="mt-1 text-sm text-zinc-600">Ranked by total points.</p>
+            <h2 className="text-xl font-black text-zinc-950">Leaderboard</h2>
+            <p className="mt-1 text-sm text-zinc-600">Submitted brackets ranked by total points.</p>
           </div>
           <span className="w-fit rounded-md bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-800">
-            Sample data
+            Live data
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -31,9 +33,9 @@ export default function LeaderboardPage() {
                 <th className="px-5 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {mockLeaderboard.map((entry) => (
-                <tr key={entry.playerName} className="text-zinc-700">
+            <tbody className="divide-y divide-zinc-100">
+              {leaderboard.map((entry) => (
+                <tr key={entry.id} className="text-zinc-700">
                   <td className="px-5 py-4 font-black text-zinc-950">#{entry.rank}</td>
                   <td className="px-5 py-4 font-bold text-zinc-950">{entry.playerName}</td>
                   <td className="px-5 py-4 font-black text-emerald-800">{entry.points}</td>
@@ -48,6 +50,12 @@ export default function LeaderboardPage() {
             </tbody>
           </table>
         </div>
+        {leaderboard.length === 0 ? (
+          <div className="border-t border-zinc-200 px-5 py-10 text-center">
+            <p className="text-lg font-black text-zinc-950">No submitted brackets yet.</p>
+            <p className="mt-2 text-sm text-zinc-600">Submitted entries will appear here.</p>
+          </div>
+        ) : null}
       </section>
     </div>
   );

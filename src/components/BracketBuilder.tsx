@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { submitBracket } from "@/app/bracket/actions";
 import { groups } from "@/data/groups";
 import { teamsById } from "@/data/teams";
 import type { BracketSubmission, GroupPick } from "@/types/bracket";
@@ -93,6 +94,7 @@ function countCompletedPicks(picks: Record<string, string>) {
 }
 
 export function BracketBuilder() {
+  const [isPending, startTransition] = useTransition();
   const [activeStep, setActiveStep] = useState<StepId>("entry");
   const [playerName, setPlayerName] = useState("");
   const [groupPicks, setGroupPicks] = useState<Record<string, GroupPick>>({});
@@ -212,7 +214,7 @@ export function BracketBuilder() {
     setStatusMessage("");
   }
 
-  function submitBracket() {
+  function handleSubmitBracket() {
     const submission: BracketSubmission = {
       playerName: playerName.trim(),
       groupPicks,
@@ -220,8 +222,10 @@ export function BracketBuilder() {
       submittedAt: new Date().toISOString(),
     };
 
-    console.info("Bracket submission ready for persistence", submission);
-    setStatusMessage("Bracket reviewed. Submission is ready.");
+    startTransition(async () => {
+      const result = await submitBracket(submission);
+      setStatusMessage(result.message);
+    });
   }
 
   function clearBracket() {
@@ -272,7 +276,8 @@ export function BracketBuilder() {
               completedKnockoutPicks={completedKnockoutPicks}
               championName={championName}
               canSubmit={canSubmit}
-              onSubmit={submitBracket}
+              isSubmitting={isPending}
+              onSubmit={handleSubmitBracket}
               onClear={clearBracket}
             />
           ) : null}
@@ -694,6 +699,7 @@ type ReviewStepProps = {
   completedKnockoutPicks: number;
   championName: string;
   canSubmit: boolean;
+  isSubmitting: boolean;
   onSubmit: () => void;
   onClear: () => void;
 };
@@ -705,6 +711,7 @@ function ReviewStep({
   completedKnockoutPicks,
   championName,
   canSubmit,
+  isSubmitting,
   onSubmit,
   onClear,
 }: ReviewStepProps) {
@@ -740,10 +747,10 @@ function ReviewStep({
           <button
             type="button"
             onClick={onSubmit}
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSubmitting}
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
           >
-            Submit Bracket
+            {isSubmitting ? "Submitting..." : "Submit Bracket"}
           </button>
           <button
             type="button"

@@ -22,7 +22,7 @@ This is not a gambling app, sportsbook, payment product, or public betting platf
 - `src/app/layout.tsx`: Root layout, metadata, and shared page chrome.
 - `src/app/page.tsx`: Home page.
 - `src/app/bracket/page.tsx`: Bracket creation route.
-- `src/app/leaderboard/page.tsx`: Mock leaderboard route.
+- `src/app/leaderboard/page.tsx`: Database-backed leaderboard route.
 - `src/app/rules/page.tsx`: Scoring rules route.
 - `src/components/`: Shared UI components.
 - `src/data/`: Static tournament data and sample leaderboard data.
@@ -49,7 +49,7 @@ The first version supports:
 - Knockout-stage winner predictions.
 - Review section before saving.
 - Review and submit flow prepared for shared database persistence.
-- Mock leaderboard with rank, player, score, champion pick, and status.
+- Leaderboard with rank, player, score, champion pick, and status.
 - Rules page with the scoring table.
 
 The app uses the current 48-team, 12-group World Cup field. The knockout path is still a simplified first UX pass and should be refined when full scoring and advancement rules are implemented.
