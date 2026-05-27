@@ -586,7 +586,7 @@ function KnockoutStep({ rounds, picks, onPick }: KnockoutStepProps) {
           </div>
 
           <div className="min-w-0 rounded-lg border border-zinc-200 bg-[#fbfaf3] p-4 shadow-sm">
-            <div className={`grid gap-3 ${activeRound.matches.length > 8 ? "lg:grid-cols-2 2xl:grid-cols-3" : "md:grid-cols-2"}`}>
+            <div className={`grid gap-3 ${activeRound.matches.length > 8 ? "xl:grid-cols-2" : "md:grid-cols-2"}`}>
               {activeRound.matches.map((match) => (
                 <MatchCard key={match.id} match={match} selectedTeamId={picks[match.id] ?? ""} onPick={handlePick} />
               ))}
@@ -664,22 +664,24 @@ function MatchCard({ match, selectedTeamId, onPick }: MatchCardProps) {
               key={teamId}
               type="button"
               onClick={() => onPick(match.id, teamId)}
-              className={`grid min-h-16 w-full grid-cols-[36px_1fr_auto] items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
+              className={`grid h-[76px] w-full grid-cols-[40px_minmax(0,1fr)_44px] items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
                 selectedTeamId === teamId
                   ? "border-emerald-600 bg-emerald-50 text-emerald-900"
                   : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-400"
               }`}
             >
-              <span className="grid size-9 place-items-center rounded bg-white text-xl shadow-sm">
+              <span className="grid size-10 place-items-center rounded bg-white text-xl shadow-sm">
                 {getTeamFlag(teamId)}
               </span>
               <span className="min-w-0">
-                <span className="block whitespace-normal break-words text-sm font-black leading-5">{getTeamName(teamId)}</span>
+                <span className="line-clamp-2 block overflow-hidden text-sm font-black leading-5">{getTeamName(teamId)}</span>
                 <span className="mt-0.5 block text-xs font-bold text-zinc-500">{getTeamCode(teamId)}</span>
               </span>
               {selectedTeamId === teamId ? (
-                <span className="rounded bg-emerald-600 px-2 py-1 text-xs font-black text-white">Pick</span>
-              ) : null}
+                <span className="rounded bg-emerald-600 px-2 py-1 text-center text-xs font-black text-white">Pick</span>
+              ) : (
+                <span aria-hidden="true" />
+              )}
             </button>
           ))
         ) : (
