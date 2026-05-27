@@ -1,0 +1,38 @@
+import type { Team } from "@/types/bracket";
+
+export const teams: Team[] = [
+  { id: "argentina", name: "Argentina", code: "ARG" },
+  { id: "canada", name: "Canada", code: "CAN" },
+  { id: "japan", name: "Japan", code: "JPN" },
+  { id: "ghana", name: "Ghana", code: "GHA" },
+  { id: "france", name: "France", code: "FRA" },
+  { id: "mexico", name: "Mexico", code: "MEX" },
+  { id: "south-korea", name: "South Korea", code: "KOR" },
+  { id: "egypt", name: "Egypt", code: "EGY" },
+  { id: "brazil", name: "Brazil", code: "BRA" },
+  { id: "usa", name: "United States", code: "USA" },
+  { id: "denmark", name: "Denmark", code: "DEN" },
+  { id: "senegal", name: "Senegal", code: "SEN" },
+  { id: "england", name: "England", code: "ENG" },
+  { id: "australia", name: "Australia", code: "AUS" },
+  { id: "switzerland", name: "Switzerland", code: "SUI" },
+  { id: "morocco", name: "Morocco", code: "MAR" },
+  { id: "spain", name: "Spain", code: "ESP" },
+  { id: "uruguay", name: "Uruguay", code: "URU" },
+  { id: "croatia", name: "Croatia", code: "CRO" },
+  { id: "cameroon", name: "Cameroon", code: "CMR" },
+  { id: "germany", name: "Germany", code: "GER" },
+  { id: "colombia", name: "Colombia", code: "COL" },
+  { id: "poland", name: "Poland", code: "POL" },
+  { id: "tunisia", name: "Tunisia", code: "TUN" },
+  { id: "portugal", name: "Portugal", code: "POR" },
+  { id: "chile", name: "Chile", code: "CHI" },
+  { id: "serbia", name: "Serbia", code: "SRB" },
+  { id: "nigeria", name: "Nigeria", code: "NGA" },
+  { id: "netherlands", name: "Netherlands", code: "NED" },
+  { id: "ecuador", name: "Ecuador", code: "ECU" },
+  { id: "sweden", name: "Sweden", code: "SWE" },
+  { id: "costa-rica", name: "Costa Rica", code: "CRC" },
+];
+
+export const teamsById = new Map(teams.map((team) => [team.id, team]));
