@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-World Cup Bracket is a clean, private prediction game for friends, family, or office pools. The app helps players fill out a tournament bracket, review their picks, save them locally, and compare against a simple leaderboard.
+World Cup Bracket is a clean, private prediction game for friends, family, or office pools. The app helps players fill out a tournament bracket, review their picks, submit an entry, and compare against a simple leaderboard.
 
 This is not a gambling app, sportsbook, payment product, or public betting platform. Any optional money pool is handled offline and outside the app.
 
@@ -15,7 +15,7 @@ This is not a gambling app, sportsbook, payment product, or public betting platf
 - ESLint
 - `src` directory
 - `@/*` import alias
-- Local React state for the first version
+- React state for the first bracket flow
 
 ## App Structure
 
@@ -25,7 +25,7 @@ This is not a gambling app, sportsbook, payment product, or public betting platf
 - `src/app/leaderboard/page.tsx`: Mock leaderboard route.
 - `src/app/rules/page.tsx`: Scoring rules route.
 - `src/components/`: Shared UI components.
-- `src/data/`: Static placeholder tournament and leaderboard data.
+- `src/data/`: Static tournament data and sample leaderboard data.
 - `src/lib/`: Shared helpers such as scoring constants.
 - `src/types/`: Shared TypeScript types.
 
@@ -36,7 +36,7 @@ Build the first usable version before adding infrastructure. Keep the product ea
 1. Static routes first.
 2. Clear data shapes second.
 3. Simple client-side bracket state third.
-4. Local save/submit behavior before adding any backend.
+4. Submission flow before adding backend persistence.
 5. Keep each page presentable throughout the build.
 
 ## Current Product Scope
@@ -48,17 +48,17 @@ The first version supports:
 - Group-stage winner and runner-up predictions.
 - Knockout-stage winner predictions.
 - Review section before saving.
-- Local browser save using `localStorage`.
+- Review and submit flow prepared for shared database persistence.
 - Mock leaderboard with rank, player, score, champion pick, and status.
 - Rules page with the scoring table.
 
-The 2026 World Cup has 48 teams. This first version intentionally uses a simplified 32-team, 8-group model so the bracket is understandable and usable quickly. The data and types are structured so the tournament can be expanded later.
+The app uses the current 48-team, 12-group World Cup field. The knockout path is still a simplified first UX pass and should be refined when full scoring and advancement rules are implemented.
 
 ## Coding Conventions
 
 - Prefer small, obvious components.
 - Use TypeScript types for shared data structures.
-- Keep placeholder data in `src/data`.
+- Keep tournament data in `src/data`.
 - Keep scoring values in `src/lib/scoring.ts`.
 - Use readable Tailwind utility classes.
 - Use `Link` for internal navigation.
@@ -77,6 +77,8 @@ The deployment flow stays simple:
 6. Share the link with friends.
 
 Do not configure Vercel CLI for this phase.
+
+Backend persistence will use GitHub, Vercel, and Neon. Do not describe local browser storage as product behavior.
 
 ## What Not To Overbuild
 

@@ -7,7 +7,7 @@ export default function BracketPage() {
       <PageHeader
         eyebrow="Create bracket"
         title="Build your tournament picks"
-        description="Enter your name, choose group finishers, advance teams through the knockout rounds, and save your picks in this browser."
+        description="Pick the groups, move through the bracket, and submit one clean entry."
       />
       <BracketBuilder />
     </div>

@@ -2,6 +2,7 @@ export type Team = {
   id: string;
   name: string;
   code: string;
+  flag: string;
 };
 
 export type Group = {
@@ -13,6 +14,7 @@ export type Group = {
 export type GroupPick = {
   winnerId: string;
   runnerUpId: string;
+  thirdPlaceId: string;
 };
 
 export type KnockoutRound = "roundOf16" | "quarterfinal" | "semifinal" | "champion";
@@ -26,7 +28,7 @@ export type BracketSubmission = {
   playerName: string;
   groupPicks: Record<string, GroupPick>;
   knockoutPicks: Record<string, string>;
-  savedAt: string;
+  submittedAt: string;
 };
 
 export type LeaderboardEntry = {
