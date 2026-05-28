@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { teamsById } from "@/data/teams";
 import { getDb } from "@/db/client";
 import { brackets, players, pools } from "@/db/schema";
+import type { GroupPick, ScorePick } from "@/types/bracket";
 
 export const DEFAULT_POOL_CODE = "world-cup-2026";
 export const DEFAULT_POOL_NAME = "World Cup 2026 Pool";
@@ -14,6 +15,19 @@ export type LeaderboardRow = {
   championPick: string;
   submissionType: string;
   status: "Submitted";
+};
+
+export type SubmissionDetail = {
+  id: string;
+  playerName: string;
+  submissionType: string;
+  championTeamId: string;
+  groupPicks: Record<string, GroupPick>;
+  thirdPlaceAdvancers: string[];
+  knockoutPicks: Record<string, string>;
+  knockoutScores: Record<string, ScorePick>;
+  predictionPayload: Record<string, unknown>;
+  submittedAt: Date;
 };
 
 export async function ensureDefaultPool() {
@@ -68,5 +82,36 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   } catch (error) {
     console.error("Leaderboard query failed", error);
     return [];
+  }
+}
+
+export async function getSubmissionDetail(id: string): Promise<SubmissionDetail | null> {
+  if (!process.env.DATABASE_URL) {
+    return null;
+  }
+
+  try {
+    const [row] = await getDb()
+      .select({
+        id: brackets.id,
+        playerName: players.name,
+        submissionType: brackets.submissionType,
+        championTeamId: brackets.championTeamId,
+        groupPicks: brackets.groupPicks,
+        thirdPlaceAdvancers: brackets.thirdPlaceAdvancers,
+        knockoutPicks: brackets.knockoutPicks,
+        knockoutScores: brackets.knockoutScores,
+        predictionPayload: brackets.predictionPayload,
+        submittedAt: brackets.submittedAt,
+      })
+      .from(brackets)
+      .innerJoin(players, eq(brackets.playerId, players.id))
+      .where(eq(brackets.id, id))
+      .limit(1);
+
+    return row ?? null;
+  } catch (error) {
+    console.error("Submission query failed", error);
+    return null;
   }
 }

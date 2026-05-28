@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { submitPrediction } from "@/app/predict/actions";
 import { groups } from "@/data/groups";
 import { homeAssets } from "@/data/homeAssets";
@@ -293,6 +294,7 @@ function buildKnockoutRounds(tables: Array<{ table: TableRow[] }>, picks: Record
 }
 
 export function MatchPredictor() {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<PredictorStep>("entry");
   const [activeGroupId, setActiveGroupId] = useState(groups[0].id);
@@ -389,6 +391,10 @@ export function MatchPredictor() {
 
       setStatusMessage(result.message);
       setIsSubmitted(result.ok);
+
+      if (result.ok && result.bracketId) {
+        router.push(`/submission/${result.bracketId}`);
+      }
     });
   }
 

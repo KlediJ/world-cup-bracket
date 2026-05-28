@@ -20,6 +20,7 @@ type SubmitBracketInput = {
 export type SubmitBracketResult = {
   ok: boolean;
   message: string;
+  bracketId?: string;
 };
 
 function validateSubmission(input: SubmitBracketInput) {
@@ -73,7 +74,7 @@ export async function submitBracket(input: SubmitBracketInput): Promise<SubmitBr
       })
       .returning();
 
-    await db.insert(brackets).values({
+    const [bracket] = await db.insert(brackets).values({
       poolId: pool.id,
       playerId: player.id,
       championTeamId: input.knockoutPicks.champion,
@@ -81,11 +82,11 @@ export async function submitBracket(input: SubmitBracketInput): Promise<SubmitBr
       thirdPlaceAdvancers: input.thirdPlaceAdvancers,
       knockoutPicks: input.knockoutPicks,
       knockoutScores: input.knockoutScores,
-    });
+    }).returning({ id: brackets.id });
 
     revalidatePath("/leaderboard");
 
-    return { ok: true, message: "Bracket submitted." };
+    return { ok: true, message: "Bracket submitted.", bracketId: bracket.id };
   } catch (error) {
     console.error("Bracket submission failed", error);
     return { ok: false, message: "Database is not connected yet." };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { submitBracket } from "@/app/bracket/actions";
 import { groups } from "@/data/groups";
 import { teamsById } from "@/data/teams";
@@ -119,6 +120,7 @@ function countCompletedScores(scores: Record<string, ScorePick>) {
 }
 
 export function BracketBuilder() {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [activeStep, setActiveStep] = useState<StepId>("entry");
   const [playerName, setPlayerName] = useState("");
@@ -314,6 +316,10 @@ export function BracketBuilder() {
       const result = await submitBracket(submission);
       setStatusMessage(result.message);
       setIsSubmitted(result.ok);
+
+      if (result.ok && result.bracketId) {
+        router.push(`/submission/${result.bracketId}`);
+      }
     });
   }
 

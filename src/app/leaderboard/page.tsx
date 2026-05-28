@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { getLeaderboard } from "@/db/queries";
 
@@ -32,6 +33,7 @@ export default async function LeaderboardPage() {
                 <th className="px-5 py-3">Entry type</th>
                 <th className="px-5 py-3">Champion pick</th>
                 <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Bracket</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -50,6 +52,11 @@ export default async function LeaderboardPage() {
                     <span className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-bold text-zinc-700">
                       {entry.status}
                     </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <Link href={`/submission/${entry.id}`} className="font-black text-emerald-700 hover:text-emerald-900">
+                      View
+                    </Link>
                   </td>
                 </tr>
               ))}

@@ -24,6 +24,7 @@ type SubmitPredictionInput = {
 export type SubmitPredictionResult = {
   ok: boolean;
   message: string;
+  bracketId?: string;
 };
 
 function validatePrediction(input: SubmitPredictionInput) {
@@ -73,7 +74,7 @@ export async function submitPrediction(input: SubmitPredictionInput): Promise<Su
       })
       .returning();
 
-    await db.insert(brackets).values({
+    const [bracket] = await db.insert(brackets).values({
       poolId: pool.id,
       playerId: player.id,
       submissionType: "predictor",
@@ -86,11 +87,11 @@ export async function submitPrediction(input: SubmitPredictionInput): Promise<Su
         groupMatchPicks: input.groupMatchPicks,
         calculatedTables: input.calculatedTables,
       },
-    });
+    }).returning({ id: brackets.id });
 
     revalidatePath("/leaderboard");
 
-    return { ok: true, message: "Prediction submitted." };
+    return { ok: true, message: "Prediction submitted.", bracketId: bracket.id };
   } catch (error) {
     console.error("Prediction submission failed", error);
     return { ok: false, message: "Database is not connected yet." };
