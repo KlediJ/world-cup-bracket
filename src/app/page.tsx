@@ -1,5 +1,7 @@
 import { ButtonLink } from "@/components/ButtonLink";
-import { dailyBriefing, funFacts, upcomingMilestones } from "@/data/homeContent";
+import { TournamentWidget } from "@/components/TournamentWidget";
+import { dailyBriefing, upcomingMilestones } from "@/data/homeContent";
+import { tournamentNumbers } from "@/data/tournamentWidget";
 import { scoringRules } from "@/lib/scoring";
 
 const playSteps = [
@@ -51,7 +53,7 @@ export default function Home() {
             </div>
             <p className="mt-5 text-xs font-black uppercase tracking-wide text-amber-200">Pool snapshot</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              {funFacts.slice(0, 4).map((fact) => (
+              {tournamentNumbers.map((fact) => (
                 <div key={fact.label} className="rounded-xl border border-white/10 bg-white/10 p-3">
                   <p className="text-3xl font-black text-white">{fact.value}</p>
                   <p className="mt-1 text-xs font-bold leading-5 text-emerald-50">{fact.label}</p>
@@ -61,6 +63,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <TournamentWidget />
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
@@ -145,19 +149,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Fun facts</p>
-        <h2 className="mt-2 text-3xl font-black text-zinc-950">Quick tournament context</h2>
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {funFacts.map((fact) => (
-            <div key={fact.label} className="rounded-xl border border-zinc-200 bg-[#fbfaf3] p-4">
-              <p className="text-4xl font-black text-emerald-700">{fact.value}</p>
-              <h3 className="mt-3 font-black text-zinc-950">{fact.label}</h3>
-              <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">{fact.detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
