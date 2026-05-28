@@ -64,3 +64,42 @@ export const upcomingMilestones = [
     location: "New York New Jersey",
   },
 ];
+
+export const flagStripTeamIds = [
+  "mexico",
+  "canada",
+  "united-states",
+  "brazil",
+  "argentina",
+  "france",
+  "spain",
+  "germany",
+  "england",
+  "japan",
+  "morocco",
+  "ghana",
+];
+
+export const matchdayCards = [
+  {
+    label: "Matchday 1",
+    title: "Opening pressure",
+    matchup: "Mexico vs Group A opponent",
+    detail: "The first pick sets the tone for every pool entry.",
+    meta: "June 11 · Mexico City",
+  },
+  {
+    label: "Group stage",
+    title: "Third-place watch",
+    matchup: "Every group matters",
+    detail: "Eight of twelve third-place teams advance, so margins can swing the bracket.",
+    meta: "June 11-27 · 72 matches",
+  },
+  {
+    label: "Knockout",
+    title: "Round of 32 chaos",
+    matchup: "First elimination wave",
+    detail: "Sixteen straight winner picks begin the real bracket run.",
+    meta: "Starts June 28",
+  },
+];

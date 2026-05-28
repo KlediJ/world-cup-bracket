@@ -1,6 +1,8 @@
 import { ButtonLink } from "@/components/ButtonLink";
 import { TournamentWidget } from "@/components/TournamentWidget";
-import { dailyBriefing, upcomingMilestones } from "@/data/homeContent";
+import { homeAssets } from "@/data/homeAssets";
+import { dailyBriefing, flagStripTeamIds, matchdayCards, upcomingMilestones } from "@/data/homeContent";
+import { teamsById } from "@/data/teams";
 import { tournamentNumbers } from "@/data/tournamentWidget";
 import { scoringRules } from "@/lib/scoring";
 
@@ -20,9 +22,18 @@ const playSteps = [
 ];
 
 export default function Home() {
+  const flagStripTeams = flagStripTeamIds.flatMap((teamId) => {
+    const team = teamsById.get(teamId);
+    return team ? [team] : [];
+  });
+
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border border-emerald-900/20 bg-emerald-950 text-white shadow-sm">
+      <section className="home-hero relative overflow-hidden rounded-3xl border border-emerald-900/20 bg-emerald-950 text-white shadow-sm">
+        <div
+          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-25 mix-blend-screen"
+          style={{ backgroundImage: `url(${homeAssets.heroGraphic})` }}
+        />
         <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(90deg,rgba(255,255,255,.65)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:92px_92px]" />
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35" />
         <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/25" />
@@ -45,11 +56,31 @@ export default function Home() {
                 Leaderboard
               </ButtonLink>
             </div>
+            <div className="mt-8 overflow-hidden rounded-xl border border-white/15 bg-white/10 py-3">
+              <div className="flag-strip flex w-max gap-3 px-3" aria-label="Featured country flag strip">
+                {[...flagStripTeams, ...flagStripTeams].map((team, index) => (
+                  <span
+                    key={`${team.id}-${index}`}
+                    className="grid min-w-16 grid-cols-[auto_1fr] items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2"
+                    aria-label={team.name}
+                    role="img"
+                  >
+                    <span className="text-2xl leading-none">{team.flag}</span>
+                    <span className="text-xs font-black text-emerald-50">{team.code}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-white/15 bg-white/10 p-5 shadow-xl shadow-emerald-950/30 backdrop-blur">
-            <div className="grid size-20 place-items-center rounded-2xl border border-amber-200/70 bg-gradient-to-b from-amber-200 to-amber-500 text-4xl shadow-sm">
-              <span aria-hidden="true">🏆</span>
+            <div
+              className="size-24 rounded-2xl border border-amber-200/70 bg-amber-300 bg-contain bg-center bg-no-repeat shadow-sm"
+              style={{ backgroundImage: `url(${homeAssets.trophyGraphic})` }}
+              aria-label="Generic trophy graphic"
+              role="img"
+            >
+              <span className="sr-only">Trophy</span>
             </div>
             <p className="mt-5 text-xs font-black uppercase tracking-wide text-amber-200">Pool snapshot</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -65,6 +96,34 @@ export default function Home() {
       </section>
 
       <TournamentWidget />
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Matchday cards</p>
+            <h2 className="mt-2 text-3xl font-black text-zinc-950">What to watch</h2>
+          </div>
+          <span className="rounded-md bg-zinc-950 px-3 py-2 text-xs font-black text-white">UI component</span>
+        </div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          {matchdayCards.map((card) => (
+            <article key={card.title} className="overflow-hidden rounded-2xl border border-zinc-200 bg-[#fbfaf3]">
+              <div className="relative bg-emerald-800 p-4 text-white">
+                <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(90deg,rgba(255,255,255,.65)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:44px_44px]" />
+                <div className="relative">
+                  <p className="text-xs font-black uppercase tracking-wide text-amber-200">{card.label}</p>
+                  <h3 className="mt-2 text-xl font-black">{card.title}</h3>
+                </div>
+              </div>
+              <div className="p-4">
+                <p className="text-sm font-black text-zinc-950">{card.matchup}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">{card.detail}</p>
+                <p className="mt-4 rounded-lg bg-white px-3 py-2 text-xs font-black text-emerald-800">{card.meta}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">

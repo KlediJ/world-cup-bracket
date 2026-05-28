@@ -10,6 +10,7 @@ import {
   tournamentNumbers,
   worldCupHistory,
 } from "@/data/tournamentWidget";
+import { homeAssets } from "@/data/homeAssets";
 import { teamsById } from "@/data/teams";
 
 function getDaysUntil(date: string) {
@@ -110,8 +111,12 @@ export function TournamentWidget() {
                 <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Did you know?</p>
                 <h3 className="mt-3 text-2xl font-black text-zinc-950">{activeFact.title}</h3>
               </div>
-              <span className="grid size-12 place-items-center rounded-xl bg-amber-300 text-2xl" aria-hidden="true">
-                🏆
+              <span
+                className="block size-14 rounded-xl bg-amber-300 bg-contain bg-center bg-no-repeat shadow-sm"
+                style={{ backgroundImage: `url(${homeAssets.trophyGraphic})` }}
+                aria-hidden="true"
+              >
+                <span className="sr-only">Trophy</span>
               </span>
             </div>
             <p className="mt-4 text-base font-semibold leading-7 text-zinc-700">{activeFact.body}</p>
