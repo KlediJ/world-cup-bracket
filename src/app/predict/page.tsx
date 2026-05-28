@@ -1,4 +1,5 @@
 import { MatchPredictor } from "@/components/MatchPredictor";
+import { homeAssets } from "@/data/homeAssets";
 
 export default function PredictPage() {
   return (
@@ -15,9 +16,14 @@ export default function PredictPage() {
               Pick every group match, let the tables decide the Round of 32, then push your winners through to the final.
             </p>
           </div>
-          <div className="relative mx-auto grid size-36 place-items-center rounded-[2rem] border border-amber-200/70 bg-gradient-to-b from-amber-200 to-amber-500 text-6xl shadow-xl shadow-emerald-950/30 lg:mx-0 lg:justify-self-end">
+          <div
+            className="relative mx-auto size-36 rounded-[2rem] border border-amber-200/70 bg-amber-300 bg-contain bg-center bg-no-repeat shadow-xl shadow-emerald-950/30 lg:mx-0 lg:justify-self-end"
+            style={{ backgroundImage: `url(${homeAssets.trophyGraphic})` }}
+            aria-label="Generic trophy graphic"
+            role="img"
+          >
             <div className="absolute inset-3 rounded-[1.5rem] border border-white/45" />
-            <span aria-hidden="true">🏆</span>
+            <span className="sr-only">Trophy</span>
           </div>
         </div>
       </section>

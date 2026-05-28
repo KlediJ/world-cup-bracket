@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { submitPrediction } from "@/app/predict/actions";
 import { groups } from "@/data/groups";
+import { homeAssets } from "@/data/homeAssets";
 import { teamsById } from "@/data/teams";
 
 type ResultPick = "home" | "draw" | "away";
@@ -410,8 +411,13 @@ export function MatchPredictor() {
               <p className="text-xs font-black uppercase tracking-wide text-amber-200">Match Predictor</p>
               <h2 className="mt-2 text-3xl font-black">{getStepTitle(step)}</h2>
             </div>
-            <div className="grid size-16 place-items-center rounded-xl border border-amber-200/70 bg-amber-300 text-3xl shadow-sm">
-              🏆
+            <div
+              className="size-16 rounded-xl border border-amber-200/70 bg-amber-300 bg-contain bg-center bg-no-repeat shadow-sm"
+              style={{ backgroundImage: `url(${homeAssets.trophyGraphic})` }}
+              aria-label="Generic trophy graphic"
+              role="img"
+            >
+              <span className="sr-only">Trophy</span>
             </div>
           </div>
         </div>

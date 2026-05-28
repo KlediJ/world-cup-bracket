@@ -42,8 +42,14 @@ body {
   }
 
   .home-hero h1 {
-    font-size: 3rem;
+    font-size: clamp(2.35rem, 13vw, 3rem);
     line-height: 1;
+  }
+
+  .home-hero a {
+    width: 100%;
+    padding-inline: 1rem;
+    text-align: center;
   }
 }
 

@@ -34,20 +34,20 @@ export default function Home() {
           className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-25 mix-blend-screen"
           style={{ backgroundImage: `url(${homeAssets.heroGraphic})` }}
         />
-        <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(90deg,rgba(255,255,255,.65)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:92px_92px]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35" />
-        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/25" />
+        <div className="pointer-events-none absolute inset-0 hidden opacity-25 [background-image:linear-gradient(90deg,rgba(255,255,255,.65)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:92px_92px] sm:block" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35 sm:block" />
+        <div className="pointer-events-none absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-white/25 sm:block" />
 
-        <div className="relative grid gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
+        <div className="relative grid gap-5 p-4 sm:gap-8 sm:p-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-wide text-amber-200">World Cup pool</p>
-            <h1 className="mt-4 text-5xl font-black tracking-tight sm:text-7xl">
+            <h1 className="mt-3 text-4xl font-black leading-none tracking-tight sm:mt-4 sm:text-7xl">
               Pick the road to the trophy.
             </h1>
-            <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-emerald-50">
+            <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-emerald-50 sm:mt-5 sm:text-lg sm:leading-8">
               A clean private pool for match predictions, bracket picks, scoring rules, and tournament updates.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-6 flex flex-col gap-2 sm:mt-8 sm:flex-row sm:gap-3">
               <ButtonLink href="/predict">Start Match Predictor</ButtonLink>
               <ButtonLink href="/bracket" variant="secondary">
                 Classic Bracket
@@ -56,7 +56,7 @@ export default function Home() {
                 Leaderboard
               </ButtonLink>
             </div>
-            <div className="mt-8 overflow-hidden rounded-xl border border-white/15 bg-white/10 py-3">
+            <div className="mt-6 overflow-hidden rounded-xl border border-white/15 bg-white/10 py-2 sm:mt-8 sm:py-3">
               <div className="flag-strip flex w-max gap-3 px-3" aria-label="Featured country flag strip">
                 {[...flagStripTeams, ...flagStripTeams].map((team, index) => (
                   <span
@@ -73,20 +73,20 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/15 bg-white/10 p-5 shadow-xl shadow-emerald-950/30 backdrop-blur">
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl shadow-emerald-950/30 backdrop-blur sm:p-5">
             <div
-              className="size-24 rounded-2xl border border-amber-200/70 bg-amber-300 bg-contain bg-center bg-no-repeat shadow-sm"
+              className="size-20 rounded-2xl border border-amber-200/70 bg-amber-300 bg-contain bg-center bg-no-repeat shadow-sm sm:size-24"
               style={{ backgroundImage: `url(${homeAssets.trophyGraphic})` }}
               aria-label="Generic trophy graphic"
               role="img"
             >
               <span className="sr-only">Trophy</span>
             </div>
-            <p className="mt-5 text-xs font-black uppercase tracking-wide text-amber-200">Pool snapshot</p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <p className="mt-4 text-xs font-black uppercase tracking-wide text-amber-200 sm:mt-5">Pool snapshot</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3">
               {tournamentNumbers.map((fact) => (
-                <div key={fact.label} className="rounded-xl border border-white/10 bg-white/10 p-3">
-                  <p className="text-3xl font-black text-white">{fact.value}</p>
+                <div key={fact.label} className="rounded-xl border border-white/10 bg-white/10 p-2.5 sm:p-3">
+                  <p className="text-2xl font-black text-white sm:text-3xl">{fact.value}</p>
                   <p className="mt-1 text-xs font-bold leading-5 text-emerald-50">{fact.label}</p>
                 </div>
               ))}
