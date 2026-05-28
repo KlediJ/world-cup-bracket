@@ -1,36 +1,43 @@
 import { ButtonLink } from "@/components/ButtonLink";
+import { dailyBriefing, funFacts, upcomingMilestones } from "@/data/homeContent";
 import { scoringRules } from "@/lib/scoring";
 
-const pickSteps = [
-  ["1", "Pick group finishers", "Choose 1st, 2nd, and 3rd for every group."],
-  ["2", "Advance the bracket", "Pick winners round by round until the final."],
-  ["3", "Submit once", "Your entry goes into the shared pool leaderboard."],
-];
-
-const quickRules = [
-  "Exact knockout scores earn a bonus.",
-  "Winner picks still matter most.",
-  "Highest total points wins.",
-  "Offline pools stay outside the app.",
+const playSteps = [
+  {
+    title: "Make your picks",
+    detail: "Use the match predictor for a full match-by-match path, or the classic bracket if you want the faster version.",
+  },
+  {
+    title: "Submit once",
+    detail: "Each email gets one entry. After submission, the bracket is locked.",
+  },
+  {
+    title: "Follow the table",
+    detail: "The leaderboard tracks total points, champion picks, and entry type.",
+  },
 ];
 
 export default function Home() {
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
-        <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="bg-zinc-950 p-6 text-white sm:p-10 lg:p-12">
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-3xl border border-emerald-900/20 bg-emerald-950 text-white shadow-sm">
+        <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(90deg,rgba(255,255,255,.65)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:92px_92px]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35" />
+        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/25" />
+
+        <div className="relative grid gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
+          <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-wide text-amber-200">World Cup pool</p>
-            <h1 className="mt-4 max-w-xl text-5xl font-black tracking-tight sm:text-6xl">
-              Simple picks. Clear scoring.
+            <h1 className="mt-4 text-5xl font-black tracking-tight sm:text-7xl">
+              Pick the road to the trophy.
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-zinc-300">
-              Fill out one bracket, submit it to the pool, and follow the standings.
+            <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-emerald-50">
+              A clean private pool for match predictions, bracket picks, scoring rules, and tournament updates.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/bracket">Create Bracket</ButtonLink>
-              <ButtonLink href="/predict" variant="secondary">
-                Match Predictor
+              <ButtonLink href="/predict">Start Match Predictor</ButtonLink>
+              <ButtonLink href="/bracket" variant="secondary">
+                Classic Bracket
               </ButtonLink>
               <ButtonLink href="/leaderboard" variant="secondary">
                 Leaderboard
@@ -38,24 +45,16 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="p-5 sm:p-8 lg:p-10">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Scoring</p>
-                <h2 className="mt-2 text-3xl font-black text-zinc-950">How points work</h2>
-              </div>
-              <span className="rounded-md bg-amber-300 px-3 py-2 text-sm font-black text-zinc-950">
-                12 pts max pick
-              </span>
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-5 shadow-xl shadow-emerald-950/30 backdrop-blur">
+            <div className="grid size-20 place-items-center rounded-2xl border border-amber-200/70 bg-gradient-to-b from-amber-200 to-amber-500 text-4xl shadow-sm">
+              <span aria-hidden="true">🏆</span>
             </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {scoringRules.map((rule) => (
-                <div key={rule.label} className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-[#fbfaf3] px-4 py-3">
-                  <span className="text-sm font-black text-zinc-800">{rule.label}</span>
-                  <span className="grid size-10 place-items-center rounded-md bg-zinc-950 text-sm font-black text-white">
-                    {rule.points}
-                  </span>
+            <p className="mt-5 text-xs font-black uppercase tracking-wide text-amber-200">Pool snapshot</p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {funFacts.slice(0, 4).map((fact) => (
+                <div key={fact.label} className="rounded-xl border border-white/10 bg-white/10 p-3">
+                  <p className="text-3xl font-black text-white">{fact.value}</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-emerald-50">{fact.label}</p>
                 </div>
               ))}
             </div>
@@ -63,39 +62,100 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">How to play</p>
-              <h2 className="mt-2 text-3xl font-black text-zinc-950">Three quick steps</h2>
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Daily briefing</p>
+              <h2 className="mt-2 text-3xl font-black text-zinc-950">Tournament news desk</h2>
             </div>
+            <span className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
+              Admin-editable feed
+            </span>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {pickSteps.map(([number, title, description]) => (
-              <div key={title} className="rounded-lg border border-zinc-200 bg-[#fbfaf3] p-4">
-                <span className="grid size-9 place-items-center rounded-md bg-emerald-600 text-sm font-black text-white">
-                  {number}
-                </span>
-                <h3 className="mt-4 text-lg font-black text-zinc-950">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-600">{description}</p>
+          <div className="mt-5 grid gap-3 lg:grid-cols-3">
+            {dailyBriefing.map((item) => (
+              <a
+                key={item.title}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="group rounded-xl border border-zinc-200 bg-[#fbfaf3] p-4 transition hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-sm"
+              >
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{item.category}</p>
+                <h3 className="mt-3 text-lg font-black leading-6 text-zinc-950 group-hover:text-emerald-800">{item.title}</h3>
+                <p className="mt-3 text-sm font-semibold leading-6 text-zinc-600">{item.summary}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <aside className="rounded-2xl border border-zinc-200 bg-zinc-950 p-5 text-white shadow-sm sm:p-6">
+          <p className="text-xs font-black uppercase tracking-wide text-amber-200">Upcoming</p>
+          <h2 className="mt-2 text-3xl font-black">Key dates</h2>
+          <div className="mt-5 space-y-3">
+            {upcomingMilestones.map((event) => (
+              <div key={`${event.date}-${event.title}`} className="grid grid-cols-[72px_1fr] gap-3 rounded-xl border border-white/10 bg-white/10 p-3">
+                <div className="rounded-lg bg-amber-300 px-2 py-3 text-center text-sm font-black text-zinc-950">{event.date}</div>
+                <div>
+                  <p className="font-black">{event.title}</p>
+                  <p className="mt-1 text-sm font-semibold text-zinc-300">{event.location}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">How to play</p>
+          <h2 className="mt-2 text-3xl font-black text-zinc-950">Simple pool flow</h2>
+          <div className="mt-5 space-y-3">
+            {playSteps.map((step, index) => (
+              <div key={step.title} className="grid grid-cols-[44px_1fr] gap-3 rounded-xl border border-zinc-200 bg-[#fbfaf3] p-4">
+                <span className="grid size-10 place-items-center rounded-lg bg-emerald-600 text-sm font-black text-white">{index + 1}</span>
+                <div>
+                  <h3 className="font-black text-zinc-950">{step.title}</h3>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-zinc-600">{step.detail}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Keep it clean</p>
-          <h2 className="mt-2 text-3xl font-black text-zinc-950">Pool basics</h2>
-          <div className="mt-5 space-y-3">
-            {quickRules.map((rule) => (
-              <div key={rule} className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
-                <span className="grid size-7 place-items-center rounded-md bg-zinc-950 text-xs font-black text-white">✓</span>
-                <span className="text-sm font-bold text-zinc-700">{rule}</span>
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Scoring</p>
+              <h2 className="mt-2 text-3xl font-black text-zinc-950">Points at a glance</h2>
+            </div>
+            <span className="rounded-md bg-amber-300 px-3 py-2 text-sm font-black text-zinc-950">Highest score wins</span>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {scoringRules.map((rule) => (
+              <div key={rule.label} className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+                <span className="text-sm font-black text-zinc-800">{rule.label}</span>
+                <span className="grid size-10 place-items-center rounded-lg bg-zinc-950 text-sm font-black text-white">{rule.points}</span>
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Fun facts</p>
+        <h2 className="mt-2 text-3xl font-black text-zinc-950">Quick tournament context</h2>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {funFacts.map((fact) => (
+            <div key={fact.label} className="rounded-xl border border-zinc-200 bg-[#fbfaf3] p-4">
+              <p className="text-4xl font-black text-emerald-700">{fact.value}</p>
+              <h3 className="mt-3 font-black text-zinc-950">{fact.label}</h3>
+              <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">{fact.detail}</p>
+            </div>
+          ))}
         </div>
       </section>
     </div>

@@ -5,6 +5,7 @@ import type { GroupPick, ScorePick } from "@/types/bracket";
 export type StoredKnockoutPicks = Record<string, string>;
 export type StoredKnockoutScores = Record<string, ScorePick>;
 export type StoredGroupPicks = Record<string, GroupPick>;
+export type StoredPredictionPayload = Record<string, unknown>;
 
 export const pools = pgTable(
   "pools",
@@ -39,11 +40,13 @@ export const brackets = pgTable("brackets", {
   playerId: uuid("player_id")
     .notNull()
     .references(() => players.id, { onDelete: "cascade" }),
+  submissionType: varchar("submission_type", { length: 32 }).default("classic").notNull(),
   championTeamId: varchar("champion_team_id", { length: 80 }).notNull(),
   groupPicks: jsonb("group_picks").$type<StoredGroupPicks>().notNull(),
   thirdPlaceAdvancers: jsonb("third_place_advancers").$type<string[]>().default([]).notNull(),
   knockoutPicks: jsonb("knockout_picks").$type<StoredKnockoutPicks>().notNull(),
   knockoutScores: jsonb("knockout_scores").$type<StoredKnockoutScores>().default({}).notNull(),
+  predictionPayload: jsonb("prediction_payload").$type<StoredPredictionPayload>().default({}).notNull(),
   points: integer("points").default(0).notNull(),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

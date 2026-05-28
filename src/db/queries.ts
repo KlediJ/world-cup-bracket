@@ -12,6 +12,7 @@ export type LeaderboardRow = {
   playerName: string;
   points: number;
   championPick: string;
+  submissionType: string;
   status: "Submitted";
 };
 
@@ -49,6 +50,7 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
         playerName: players.name,
         points: brackets.points,
         championTeamId: brackets.championTeamId,
+        submissionType: brackets.submissionType,
       })
       .from(brackets)
       .innerJoin(players, eq(brackets.playerId, players.id))
@@ -60,6 +62,7 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
       playerName: row.playerName,
       points: row.points,
       championPick: teamsById.get(row.championTeamId)?.name ?? row.championTeamId,
+      submissionType: row.submissionType,
       status: "Submitted",
     }));
   } catch (error) {

@@ -29,6 +29,7 @@ export default async function LeaderboardPage() {
                 <th className="px-5 py-3">Rank</th>
                 <th className="px-5 py-3">Player</th>
                 <th className="px-5 py-3">Points</th>
+                <th className="px-5 py-3">Entry type</th>
                 <th className="px-5 py-3">Champion pick</th>
                 <th className="px-5 py-3">Status</th>
               </tr>
@@ -39,6 +40,11 @@ export default async function LeaderboardPage() {
                   <td className="px-5 py-4 font-black text-zinc-950">#{entry.rank}</td>
                   <td className="px-5 py-4 font-bold text-zinc-950">{entry.playerName}</td>
                   <td className="px-5 py-4 font-black text-emerald-800">{entry.points}</td>
+                  <td className="px-5 py-4">
+                    <span className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-bold capitalize text-zinc-700">
+                      {entry.submissionType}
+                    </span>
+                  </td>
                   <td className="px-5 py-4">{entry.championPick}</td>
                   <td className="px-5 py-4">
                     <span className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-bold text-zinc-700">

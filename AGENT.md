@@ -22,6 +22,7 @@ This is not a gambling app, sportsbook, payment product, or public betting platf
 - `src/app/layout.tsx`: Root layout, metadata, and shared page chrome.
 - `src/app/page.tsx`: Home page.
 - `src/app/bracket/page.tsx`: Bracket creation route.
+- `src/app/predict/page.tsx`: Match-by-match predictor A/B route.
 - `src/app/leaderboard/page.tsx`: Database-backed leaderboard route.
 - `src/components/`: Shared UI components.
 - `src/data/`: Static tournament data and sample leaderboard data.
@@ -48,6 +49,7 @@ The first version supports:
 - Knockout-stage winner predictions.
 - Review section before saving.
 - Review and submit flow prepared for shared database persistence.
+- Match-by-match predictor flow that stores predictor submissions separately from classic brackets.
 - Leaderboard with rank, player, score, champion pick, and status.
 - Home page scoring table.
 

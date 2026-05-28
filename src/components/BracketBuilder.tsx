@@ -49,6 +49,27 @@ function getTeamFlag(teamId: string | undefined) {
   return teamId ? teamsById.get(teamId)?.flag ?? "" : "";
 }
 
+function getTeamFlagUrl(teamId: string | undefined) {
+  return teamId ? teamsById.get(teamId)?.flagUrl : undefined;
+}
+
+function FlagIcon({ teamId, className = "size-8" }: { teamId: string | undefined; className?: string }) {
+  const flagUrl = getTeamFlagUrl(teamId);
+
+  if (flagUrl) {
+    return (
+      <span
+        aria-label={`${getTeamName(teamId)} flag`}
+        role="img"
+        className={`${className} block rounded bg-cover bg-center shadow-sm`}
+        style={{ backgroundImage: `url(${flagUrl})` }}
+      />
+    );
+  }
+
+  return <span className="text-xl">{getTeamFlag(teamId)}</span>;
+}
+
 function getGroupPick(groupPicks: Record<string, GroupPick>, groupId: string, slot: keyof GroupPick) {
   return groupPicks[groupId]?.[slot] ?? "";
 }
@@ -612,7 +633,7 @@ function ThirdPlaceTable({ thirdPlaceTeams, selectedTeamIds, onToggle }: ThirdPl
                   : "border-zinc-200 bg-[#fbfaf3] text-zinc-800 hover:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-45"
               }`}
             >
-              <span className="grid size-10 place-items-center rounded bg-white text-xl shadow-sm">{getTeamFlag(entry.teamId)}</span>
+              <FlagIcon teamId={entry.teamId} className="size-10" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-black">{getTeamName(entry.teamId)}</span>
                 <span className="block text-xs font-bold text-zinc-500">
@@ -652,7 +673,7 @@ function TeamPickRow({
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="text-xl">{getTeamFlag(teamId)}</span>
+        <FlagIcon teamId={teamId} className="h-6 w-8 shrink-0" />
         <span className="min-w-0">
           <span className="block truncate text-sm font-black text-zinc-900">{getTeamName(teamId)}</span>
           <span className="block text-xs font-bold text-zinc-500">{getTeamCode(teamId)}</span>
@@ -837,7 +858,7 @@ function MiniRoundSummary({ round, picks }: { round: KnockoutRoundConfig; picks:
       <div className="mt-3 space-y-2">
         {round.matches.slice(0, 6).map((match) => (
           <div key={match.id} className="flex items-center gap-2 rounded bg-zinc-50 px-2 py-1 text-xs font-bold text-zinc-600">
-            <span>{getTeamFlag(picks[match.id])}</span>
+            <FlagIcon teamId={picks[match.id]} className="h-4 w-6 shrink-0" />
             <span className="min-w-0 truncate">{getTeamName(picks[match.id], "Open")}</span>
           </div>
         ))}
@@ -876,9 +897,7 @@ function MatchCard({ match, selectedTeamId, score, onPick, onScoreChange }: Matc
                   : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-400"
               }`}
             >
-              <span className="grid size-10 place-items-center rounded bg-white text-xl shadow-sm">
-                {getTeamFlag(teamId)}
-              </span>
+              <FlagIcon teamId={teamId} className="size-10" />
               <span className="min-w-0">
                 <span className="line-clamp-2 block overflow-hidden text-sm font-black leading-5">{getTeamName(teamId)}</span>
                 <span className="mt-0.5 block text-xs font-bold text-zinc-500">{getTeamCode(teamId)}</span>

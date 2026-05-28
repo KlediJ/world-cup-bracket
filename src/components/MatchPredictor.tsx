@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { submitPrediction } from "@/app/predict/actions";
 import { groups } from "@/data/groups";
 import { teamsById } from "@/data/teams";
 
@@ -66,6 +67,53 @@ function getTeamCode(teamId: string | undefined) {
 
 function getTeamFlag(teamId: string | undefined) {
   return teamId ? teamsById.get(teamId)?.flag ?? "" : "";
+}
+
+function getTeamFlagUrl(teamId: string | undefined) {
+  return teamId ? teamsById.get(teamId)?.flagUrl : undefined;
+}
+
+function FlagIcon({ teamId, className = "size-8" }: { teamId: string | undefined; className?: string }) {
+  const flagUrl = getTeamFlagUrl(teamId);
+
+  if (flagUrl) {
+    return (
+      <span
+        aria-label={`${getTeamName(teamId)} flag`}
+        role="img"
+        className={`${className} block rounded bg-cover bg-center shadow-sm`}
+        style={{ backgroundImage: `url(${flagUrl})` }}
+      />
+    );
+  }
+
+  return <span className="text-2xl">{getTeamFlag(teamId)}</span>;
+}
+
+function getPredictDownstreamMatches(matchId: string) {
+  if (matchId.startsWith("predict-r32-")) {
+    return [
+      ...Array.from({ length: 8 }, (_, index) => `predict-r16-${index + 1}`),
+      ...Array.from({ length: 4 }, (_, index) => `predict-qf-${index + 1}`),
+      "predict-sf-1",
+      "predict-sf-2",
+      "predict-champion",
+    ];
+  }
+
+  if (matchId.startsWith("predict-r16-")) {
+    return [...Array.from({ length: 4 }, (_, index) => `predict-qf-${index + 1}`), "predict-sf-1", "predict-sf-2", "predict-champion"];
+  }
+
+  if (matchId.startsWith("predict-qf-")) {
+    return ["predict-sf-1", "predict-sf-2", "predict-champion"];
+  }
+
+  if (matchId.startsWith("predict-sf-")) {
+    return ["predict-champion"];
+  }
+
+  return [];
 }
 
 function createGroupMatches(): GroupMatch[] {
@@ -244,6 +292,7 @@ function buildKnockoutRounds(tables: Array<{ table: TableRow[] }>, picks: Record
 }
 
 export function MatchPredictor() {
+  const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<PredictorStep>("entry");
   const [activeGroupId, setActiveGroupId] = useState(groups[0].id);
   const [activeRoundIndex, setActiveRoundIndex] = useState(0);
@@ -252,6 +301,7 @@ export function MatchPredictor() {
   const [groupPicks, setGroupPicks] = useState<Record<string, GroupMatchPick>>({});
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const groupMatches = useMemo(() => createGroupMatches(), []);
   const groupTables = useMemo(() => calculateGroupTables(groupMatches, groupPicks), [groupMatches, groupPicks]);
@@ -263,7 +313,7 @@ export function MatchPredictor() {
   const champion = knockoutPicks["predict-champion"];
   const activeRound = knockoutRounds[activeRoundIndex];
   const activeRoundTarget = roundTargets[activeRound.title as keyof typeof roundTargets];
-  const activeRoundComplete = activeRound.matches.filter((match) => knockoutPicks[match.id]).length === activeRoundTarget;
+  const knockoutComplete = Boolean(champion);
 
   function updateGroupPick(matchId: string, result: ResultPick) {
     setGroupPicks((current) => ({
@@ -296,10 +346,24 @@ export function MatchPredictor() {
   }
 
   function pickKnockoutWinner(matchId: string, teamId: string) {
-    setKnockoutPicks((current) => ({
-      ...current,
-      [matchId]: teamId,
-    }));
+    const nextPickCount = knockoutPicks[matchId]
+      ? activeRound.matches.filter((match) => knockoutPicks[match.id]).length
+      : activeRound.matches.filter((match) => knockoutPicks[match.id]).length + 1;
+
+    setKnockoutPicks((current) => {
+      const next = { ...current };
+
+      for (const downstreamMatchId of getPredictDownstreamMatches(matchId)) {
+        delete next[downstreamMatchId];
+      }
+
+      next[matchId] = teamId;
+      return next;
+    });
+
+    if (nextPickCount === activeRoundTarget && activeRoundIndex < knockoutRounds.length - 1) {
+      setActiveRoundIndex((current) => current + 1);
+    }
   }
 
   function nextStep() {
@@ -312,6 +376,21 @@ export function MatchPredictor() {
     setStep(stepOrder[Math.max(index - 1, 0)]);
   }
 
+  function handleSubmitPrediction() {
+    startTransition(async () => {
+      const result = await submitPrediction({
+        playerName: playerName.trim(),
+        playerEmail: playerEmail.trim().toLowerCase(),
+        groupMatchPicks: groupPicks,
+        knockoutPicks,
+        calculatedTables: groupTables,
+      });
+
+      setStatusMessage(result.message);
+      setIsSubmitted(result.ok);
+    });
+  }
+
   return (
     <div className="space-y-5">
       <PredictorProgress step={step} hasValidEntry={hasValidEntry} groupsComplete={allGroupsComplete} champion={champion} onSelect={setStep} />
@@ -322,10 +401,19 @@ export function MatchPredictor() {
         </div>
       ) : null}
 
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 bg-zinc-950 p-5 text-white">
-          <p className="text-xs font-black uppercase tracking-wide text-amber-200">A/B Flow</p>
-          <h2 className="mt-2 text-3xl font-black">{getStepTitle(step)}</h2>
+      <section className="overflow-hidden rounded-2xl border border-emerald-900/20 bg-white shadow-sm">
+        <div className="relative overflow-hidden border-b border-emerald-900/20 bg-emerald-800 p-5 text-white">
+          <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(90deg,rgba(255,255,255,.55)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:96px_96px]" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/60" />
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-amber-200">Match Predictor</p>
+              <h2 className="mt-2 text-3xl font-black">{getStepTitle(step)}</h2>
+            </div>
+            <div className="grid size-16 place-items-center rounded-xl border border-amber-200/70 bg-amber-300 text-3xl shadow-sm">
+              🏆
+            </div>
+          </div>
         </div>
 
         <div className="p-4 sm:p-6">
@@ -354,6 +442,8 @@ export function MatchPredictor() {
               picks={knockoutPicks}
               activeRoundIndex={activeRoundIndex}
               onRoundChange={setActiveRoundIndex}
+              onNextRound={() => setActiveRoundIndex((current) => Math.min(current + 1, knockoutRounds.length - 1))}
+              onPreviousRound={() => setActiveRoundIndex((current) => Math.max(current - 1, 0))}
               onPick={pickKnockoutWinner}
             />
           ) : null}
@@ -364,7 +454,9 @@ export function MatchPredictor() {
               email={playerEmail}
               completedGroupMatches={completedGroupMatches}
               champion={champion}
-              onComplete={() => setStatusMessage("Prediction complete. This A/B flow is ready for persistence wiring.")}
+              isSubmitting={isPending}
+              isSubmitted={isSubmitted}
+              onComplete={handleSubmitPrediction}
             />
           ) : null}
         </div>
@@ -382,7 +474,7 @@ export function MatchPredictor() {
             <button
               type="button"
               onClick={nextStep}
-              disabled={(step === "entry" && !hasValidEntry) || (step === "groups" && !allGroupsComplete) || (step === "knockout" && !activeRoundComplete)}
+              disabled={(step === "entry" && !hasValidEntry) || (step === "groups" && !allGroupsComplete) || (step === "knockout" && !knockoutComplete)}
               className="min-h-11 rounded-md bg-zinc-950 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
             >
               Continue
@@ -629,7 +721,9 @@ function ResultButton({ active, children, onClick }: { active: boolean; children
 function TeamBlock({ teamId, align }: { teamId: string; align: "left" | "right" }) {
   return (
     <div className={`min-w-0 ${align === "right" ? "text-right" : ""}`}>
-      <div className="text-3xl">{getTeamFlag(teamId)}</div>
+      <div className={`flex ${align === "right" ? "justify-end" : "justify-start"}`}>
+        <FlagIcon teamId={teamId} className="h-8 w-11" />
+      </div>
       <p className="mt-2 line-clamp-2 text-base font-black leading-5 text-zinc-950">{getTeamName(teamId)}</p>
       <p className="mt-1 text-xs font-bold text-zinc-500">{getTeamCode(teamId)}</p>
     </div>
@@ -669,7 +763,10 @@ function TablesStage({ tables }: { tables: Array<{ group: (typeof groups)[number
               {table.map((row, index) => (
                 <div key={row.teamId} className="grid grid-cols-[24px_1fr_36px_36px] items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm">
                   <span className="font-black text-zinc-400">{index + 1}</span>
-                  <span className="truncate font-bold text-zinc-800">{getTeamFlag(row.teamId)} {getTeamName(row.teamId)}</span>
+                  <span className="flex min-w-0 items-center gap-2 font-bold text-zinc-800">
+                    <FlagIcon teamId={row.teamId} className="h-4 w-6 shrink-0" />
+                    <span className="truncate">{getTeamName(row.teamId)}</span>
+                  </span>
                   <span className="text-right font-bold text-zinc-500">{row.goalDifference}</span>
                   <span className="text-right font-black text-zinc-950">{row.points}</span>
                 </div>
@@ -684,7 +781,10 @@ function TablesStage({ tables }: { tables: Array<{ group: (typeof groups)[number
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           {thirdPlace.map((row) => (
             <div key={row.teamId} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3">
-              <p className="font-black text-emerald-950">{getTeamFlag(row.teamId)} {getTeamName(row.teamId)}</p>
+              <p className="flex items-center gap-2 font-black text-emerald-950">
+                <FlagIcon teamId={row.teamId} className="h-5 w-7 shrink-0" />
+                <span className="truncate">{getTeamName(row.teamId)}</span>
+              </p>
               <p className="mt-1 text-xs font-bold text-emerald-700">{row.groupName} · {row.points} pts · GD {row.goalDifference}</p>
             </div>
           ))}
@@ -699,15 +799,23 @@ function KnockoutPredictionStage({
   picks,
   activeRoundIndex,
   onRoundChange,
+  onNextRound,
+  onPreviousRound,
   onPick,
 }: {
   rounds: KnockoutRound[];
   picks: Record<string, string>;
   activeRoundIndex: number;
   onRoundChange: (index: number) => void;
+  onNextRound: () => void;
+  onPreviousRound: () => void;
   onPick: (matchId: string, teamId: string) => void;
 }) {
   const activeRound = rounds[activeRoundIndex];
+  const activeRoundTarget = roundTargets[activeRound.title as keyof typeof roundTargets];
+  const activeRoundPicks = activeRound.matches.filter((match) => picks[match.id]).length;
+  const canAdvanceRound = activeRoundPicks === activeRoundTarget;
+
   return (
     <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="rounded-2xl border border-zinc-200 bg-[#fbfaf3] p-3">
@@ -729,11 +837,30 @@ function KnockoutPredictionStage({
         <div className="rounded-2xl bg-zinc-950 p-5 text-white">
           <p className="text-xs font-black uppercase tracking-wide text-amber-200">Now Picking</p>
           <h3 className="mt-1 text-3xl font-black">{activeRound.title}</h3>
+          <p className="mt-2 text-sm font-black text-emerald-100">{activeRoundPicks} of {activeRoundTarget} picked</p>
         </div>
         <div className={`grid gap-3 ${activeRound.matches.length > 8 ? "xl:grid-cols-2" : "md:grid-cols-2"}`}>
           {activeRound.matches.map((match) => (
             <KnockoutPickCard key={match.id} match={match} selectedTeamId={picks[match.id]} onPick={onPick} />
           ))}
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={onPreviousRound}
+            disabled={activeRoundIndex === 0}
+            className="min-h-11 rounded-md border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Previous Round
+          </button>
+          <button
+            type="button"
+            onClick={onNextRound}
+            disabled={!canAdvanceRound || activeRoundIndex === rounds.length - 1}
+            className="min-h-11 rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+          >
+            Next Round
+          </button>
         </div>
       </div>
     </div>
@@ -754,7 +881,7 @@ function KnockoutPickCard({ match, selectedTeamId, onPick }: { match: KnockoutMa
               onClick={() => onPick(match.id, teamId)}
               className={`grid min-h-16 w-full grid-cols-[40px_1fr_auto] items-center gap-3 rounded-xl border px-3 py-2 text-left ${selectedTeamId === teamId ? "border-emerald-600 bg-emerald-50" : "border-zinc-200 bg-white"}`}
             >
-              <span className="text-2xl">{getTeamFlag(teamId)}</span>
+              <FlagIcon teamId={teamId} className="h-7 w-10" />
               <span className="min-w-0">
                 <span className="block line-clamp-2 font-black text-zinc-950">{getTeamName(teamId)}</span>
                 <span className="text-xs font-bold text-zinc-500">{getTeamCode(teamId)}</span>
@@ -770,7 +897,23 @@ function KnockoutPickCard({ match, selectedTeamId, onPick }: { match: KnockoutMa
   );
 }
 
-function PredictorReview({ name, email, completedGroupMatches, champion, onComplete }: { name: string; email: string; completedGroupMatches: number; champion?: string; onComplete: () => void }) {
+function PredictorReview({
+  name,
+  email,
+  completedGroupMatches,
+  champion,
+  isSubmitting,
+  isSubmitted,
+  onComplete,
+}: {
+  name: string;
+  email: string;
+  completedGroupMatches: number;
+  champion?: string;
+  isSubmitting: boolean;
+  isSubmitted: boolean;
+  onComplete: () => void;
+}) {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
       <div className="rounded-2xl border border-zinc-200 bg-[#fbfaf3] p-5">
@@ -782,8 +925,13 @@ function PredictorReview({ name, email, completedGroupMatches, champion, onCompl
         <SummaryLine label="Email" value={email || "Email needed"} />
         <SummaryLine label="Group matches" value={`${completedGroupMatches} of 72`} />
         <SummaryLine label="Champion" value={getTeamName(champion, "No champion picked")} />
-        <button type="button" onClick={onComplete} className="mt-5 min-h-11 w-full rounded-md bg-emerald-600 px-5 py-3 text-sm font-black text-white">
-          Complete Prediction
+        <button
+          type="button"
+          onClick={onComplete}
+          disabled={isSubmitting || isSubmitted || !champion}
+          className="mt-5 min-h-11 w-full rounded-md bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+        >
+          {isSubmitted ? "Submitted" : isSubmitting ? "Submitting..." : "Submit Prediction"}
         </button>
       </aside>
     </div>

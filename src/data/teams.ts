@@ -1,6 +1,8 @@
 import type { Team } from "@/types/bracket";
 
-export const teams: Team[] = [
+const flagUrl = (code: string) => `https://flagcdn.com/w40/${code}.png`;
+
+const rawTeams: Team[] = [
   { id: "mexico", name: "Mexico", code: "MEX", flag: "🇲🇽" },
   { id: "south-africa", name: "South Africa", code: "RSA", flag: "🇿🇦" },
   { id: "korea-republic", name: "Korea Republic", code: "KOR", flag: "🇰🇷" },
@@ -50,5 +52,61 @@ export const teams: Team[] = [
   { id: "ghana", name: "Ghana", code: "GHA", flag: "🇬🇭" },
   { id: "panama", name: "Panama", code: "PAN", flag: "🇵🇦" },
 ];
+
+const flagCodesByTeamId: Record<string, string> = {
+  mexico: "mx",
+  "south-africa": "za",
+  "korea-republic": "kr",
+  czechia: "cz",
+  canada: "ca",
+  switzerland: "ch",
+  qatar: "qa",
+  "bosnia-herzegovina": "ba",
+  brazil: "br",
+  morocco: "ma",
+  haiti: "ht",
+  scotland: "gb-sct",
+  "united-states": "us",
+  paraguay: "py",
+  australia: "au",
+  turkiye: "tr",
+  germany: "de",
+  curacao: "cw",
+  "cote-divoire": "ci",
+  ecuador: "ec",
+  netherlands: "nl",
+  japan: "jp",
+  tunisia: "tn",
+  sweden: "se",
+  belgium: "be",
+  egypt: "eg",
+  "ir-iran": "ir",
+  "new-zealand": "nz",
+  spain: "es",
+  "cabo-verde": "cv",
+  "saudi-arabia": "sa",
+  uruguay: "uy",
+  france: "fr",
+  senegal: "sn",
+  norway: "no",
+  iraq: "iq",
+  argentina: "ar",
+  algeria: "dz",
+  austria: "at",
+  jordan: "jo",
+  portugal: "pt",
+  uzbekistan: "uz",
+  colombia: "co",
+  "congo-dr": "cd",
+  england: "gb-eng",
+  croatia: "hr",
+  ghana: "gh",
+  panama: "pa",
+};
+
+export const teams: Team[] = rawTeams.map((team) => ({
+  ...team,
+  flagUrl: flagUrl(flagCodesByTeamId[team.id]),
+}));
 
 export const teamsById = new Map(teams.map((team) => [team.id, team]));
