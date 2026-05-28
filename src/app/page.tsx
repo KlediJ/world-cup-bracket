@@ -38,8 +38,8 @@ export default function Home() {
         <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35 sm:block" />
         <div className="pointer-events-none absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-white/25 sm:block" />
 
-        <div className="relative grid gap-5 p-4 sm:gap-8 sm:p-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
-          <div className="max-w-3xl">
+        <div className="relative grid min-w-0 gap-5 p-4 sm:gap-8 sm:p-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-10">
+          <div className="min-w-0 max-w-3xl">
             <p className="text-xs font-black uppercase tracking-wide text-amber-200">World Cup pool</p>
             <h1 className="mt-3 text-4xl font-black leading-none tracking-tight sm:mt-4 sm:text-7xl">
               Pick the road to the trophy.
@@ -56,7 +56,7 @@ export default function Home() {
                 Leaderboard
               </ButtonLink>
             </div>
-            <div className="mt-6 overflow-hidden rounded-xl border border-white/15 bg-white/10 py-2 sm:mt-8 sm:py-3">
+            <div className="mt-6 min-w-0 max-w-full overflow-hidden rounded-xl border border-white/15 bg-white/10 py-2 sm:mt-8 sm:py-3">
               <div className="flag-strip flex w-max gap-3 px-3" aria-label="Featured country flag strip">
                 {[...flagStripTeams, ...flagStripTeams].map((team, index) => (
                   <span
@@ -73,7 +73,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl shadow-emerald-950/30 backdrop-blur sm:p-5">
+          <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl shadow-emerald-950/30 backdrop-blur sm:p-5">
             <div
               className="size-20 rounded-2xl border border-amber-200/70 bg-amber-300 bg-contain bg-center bg-no-repeat shadow-sm sm:size-24"
               style={{ backgroundImage: `url(${homeAssets.trophyGraphic})` }}
