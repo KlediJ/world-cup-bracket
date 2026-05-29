@@ -28,7 +28,9 @@ function validateSubmission(input: SubmitBracketInput) {
     return "Enter a player name.";
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.playerEmail.trim())) {
+  const email = input.playerEmail.trim();
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return "Enter a valid email address.";
   }
 
@@ -53,16 +55,20 @@ export async function submitBracket(input: SubmitBracketInput): Promise<SubmitBr
   try {
     const db = getDb();
     const pool = await ensureDefaultPool();
-    const normalizedEmail = input.playerEmail.trim().toLowerCase();
-    const [existingBracket] = await db
-      .select({ id: brackets.id })
-      .from(brackets)
-      .innerJoin(players, eq(brackets.playerId, players.id))
-      .where(and(eq(players.poolId, pool.id), eq(players.email, normalizedEmail)))
-      .limit(1);
+    const submittedEmail = input.playerEmail.trim().toLowerCase();
+    const normalizedEmail = submittedEmail || `anonymous-${crypto.randomUUID()}@local.invalid`;
 
-    if (existingBracket) {
-      return { ok: false, message: "That email already submitted a bracket for this pool." };
+    if (submittedEmail) {
+      const [existingBracket] = await db
+        .select({ id: brackets.id })
+        .from(brackets)
+        .innerJoin(players, eq(brackets.playerId, players.id))
+        .where(and(eq(players.poolId, pool.id), eq(players.email, submittedEmail)))
+        .limit(1);
+
+      if (existingBracket) {
+        return { ok: false, message: "That email already submitted a bracket for this pool." };
+      }
     }
 
     const [player] = await db

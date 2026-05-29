@@ -30,6 +30,17 @@ export type SubmissionDetail = {
   submittedAt: Date;
 };
 
+export type AdminSubmissionRow = {
+  id: string;
+  playerId: string;
+  playerName: string;
+  playerEmail: string;
+  points: number;
+  championPick: string;
+  submissionType: string;
+  submittedAt: Date;
+};
+
 export async function ensureDefaultPool() {
   const db = getDb();
   const existingPool = await db.query.pools.findFirst({
@@ -113,5 +124,56 @@ export async function getSubmissionDetail(id: string): Promise<SubmissionDetail 
   } catch (error) {
     console.error("Submission query failed", error);
     return null;
+  }
+}
+
+export async function getAdminSubmissions(search = ""): Promise<AdminSubmissionRow[]> {
+  if (!process.env.DATABASE_URL) {
+    return [];
+  }
+
+  try {
+    const rows = await getDb()
+      .select({
+        id: brackets.id,
+        playerId: players.id,
+        playerName: players.name,
+        playerEmail: players.email,
+        points: brackets.points,
+        championTeamId: brackets.championTeamId,
+        submissionType: brackets.submissionType,
+        submittedAt: brackets.submittedAt,
+      })
+      .from(brackets)
+      .innerJoin(players, eq(brackets.playerId, players.id))
+      .orderBy(desc(brackets.submittedAt));
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return rows
+      .filter((row) => {
+        if (!normalizedSearch) {
+          return true;
+        }
+
+        return (
+          row.playerName.toLowerCase().includes(normalizedSearch) ||
+          row.playerEmail.toLowerCase().includes(normalizedSearch) ||
+          row.submissionType.toLowerCase().includes(normalizedSearch) ||
+          (teamsById.get(row.championTeamId)?.name ?? row.championTeamId).toLowerCase().includes(normalizedSearch)
+        );
+      })
+      .map((row) => ({
+        id: row.id,
+        playerId: row.playerId,
+        playerName: row.playerName,
+        playerEmail: row.playerEmail,
+        points: row.points,
+        championPick: teamsById.get(row.championTeamId)?.name ?? row.championTeamId,
+        submissionType: row.submissionType,
+        submittedAt: row.submittedAt,
+      }));
+  } catch (error) {
+    console.error("Admin submissions query failed", error);
+    return [];
   }
 }

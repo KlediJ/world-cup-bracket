@@ -330,7 +330,7 @@ export function GamePredictor() {
   const activeRound = knockoutRounds[activeRoundIndex];
   const activeKnockoutMatch = activeRound?.matches[activeKnockoutIndex];
   const champion = knockoutPicks["predict-champion"];
-  const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
+  const hasValidEmail = !playerEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
   const canStart = playerName.trim().length > 0 && hasValidEmail;
   const groupProgress = Object.keys(groupPicks).length;
   function chooseGroupResult(result: ResultPick) {
@@ -496,7 +496,7 @@ export function GamePredictor() {
               <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
             </label>
             <label className="text-sm font-black text-zinc-700">
-              Email
+              Email <span className="text-zinc-500">(optional)</span>
               <input value={playerEmail} onChange={(event) => setPlayerEmail(event.target.value)} className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
             </label>
           </div>

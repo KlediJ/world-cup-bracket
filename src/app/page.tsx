@@ -13,7 +13,7 @@ const playSteps = [
   },
   {
     title: "Submit once",
-    detail: "Each email gets one entry. After submission, the bracket is locked.",
+    detail: "Add your name, submit your picks, and the bracket is locked.",
   },
   {
     title: "Follow the table",

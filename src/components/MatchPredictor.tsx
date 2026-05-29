@@ -311,7 +311,7 @@ export function MatchPredictor() {
   const knockoutRounds = useMemo(() => buildKnockoutRounds(groupTables, knockoutPicks), [groupTables, knockoutPicks]);
   const activeGroupMatches = groupMatches.filter((match) => match.groupId === activeGroupId);
   const completedGroupMatches = Object.values(groupPicks).filter((pick) => pick.result).length;
-  const hasValidEntry = playerName.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
+  const hasValidEntry = playerName.trim().length > 0 && (!playerEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim()));
   const allGroupsComplete = completedGroupMatches === groupMatches.length;
   const champion = knockoutPicks["predict-champion"];
   const activeRound = knockoutRounds[activeRoundIndex];
@@ -574,7 +574,7 @@ function PredictorEntry({
     <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
       <div className="grid gap-4">
         <TextField id="predictName" label="Player name" value={name} placeholder="Example: Alex" onChange={onNameChange} />
-        <TextField id="predictEmail" label="Email address" value={email} placeholder="alex@example.com" type="email" onChange={onEmailChange} />
+        <TextField id="predictEmail" label="Email address (optional)" value={email} placeholder="alex@example.com" type="email" onChange={onEmailChange} />
       </div>
       <div className="rounded-2xl border border-zinc-200 bg-[#fbfaf3] p-5">
         <p className="text-xs font-black uppercase tracking-wide text-emerald-700">How this flow works</p>
@@ -930,11 +930,11 @@ function PredictorReview({
     <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
       <div className="rounded-2xl border border-zinc-200 bg-[#fbfaf3] p-5">
         <h3 className="text-2xl font-black text-zinc-950">Prediction summary</h3>
-        <p className="mt-3 text-sm font-semibold leading-6 text-zinc-600">This version is built for A/B testing against the classic bracket flow.</p>
+        <p className="mt-3 text-sm font-semibold leading-6 text-zinc-600">Review the champion and submit when your path is ready.</p>
       </div>
       <aside className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
         <SummaryLine label="Player" value={name || "Name needed"} />
-        <SummaryLine label="Email" value={email || "Email needed"} />
+        <SummaryLine label="Email" value={email || "Optional"} />
         <SummaryLine label="Group matches" value={`${completedGroupMatches} of 72`} />
         <SummaryLine label="Champion" value={getTeamName(champion, "No champion picked")} />
         <button

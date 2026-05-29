@@ -181,7 +181,7 @@ export function BracketBuilder() {
   const completedScorePicks = countCompletedScores(knockoutScores);
   const completedThirdPlaceAdvancers = thirdPlaceAdvancers.length;
   const championName = getTeamName(knockoutPicks.champion, "No champion picked");
-  const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
+  const hasValidEmail = !playerEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
   const canSubmit =
     playerName.trim().length > 0 &&
     hasValidEmail &&
@@ -190,7 +190,7 @@ export function BracketBuilder() {
     Boolean(knockoutPicks.champion);
 
   const stepState = {
-    entry: playerName.trim().length > 0 && hasValidEmail,
+    entry: playerName.trim().length > 0,
     groups: completedGroups === groups.length && completedThirdPlaceAdvancers === 8,
     knockout: Boolean(knockoutPicks.champion),
     review: canSubmit,
@@ -510,7 +510,7 @@ function EntryStep({ playerName, playerEmail, onPlayerNameChange, onPlayerEmailC
         </div>
         <div>
           <label htmlFor="playerEmail" className="text-sm font-black text-zinc-900">
-            Email address
+            Email address <span className="text-zinc-500">(optional)</span>
           </label>
           <input
             id="playerEmail"
@@ -523,9 +523,9 @@ function EntryStep({ playerName, playerEmail, onPlayerNameChange, onPlayerEmailC
         </div>
       </div>
       <div className="rounded-lg border border-dashed border-zinc-300 bg-[#fbfaf3] p-4">
-        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">One entry per email</p>
+        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Locked after submission</p>
         <p className="mt-2 text-sm leading-6 text-zinc-700">
-          Brackets are final after submission. The leaderboard shows player names only.
+          The leaderboard shows player names only. Add an email only if you want duplicate-entry protection.
         </p>
       </div>
     </div>
@@ -1026,7 +1026,7 @@ function ReviewStep({
         <h3 className="text-lg font-black text-zinc-950">Entry summary</h3>
         <div className="mt-4 space-y-3 text-sm text-zinc-700">
           <SummaryLine label="Player" value={playerName || "Name needed"} />
-          <SummaryLine label="Email" value={playerEmail || "Email needed"} />
+          <SummaryLine label="Email" value={playerEmail || "Optional"} />
           <SummaryLine label="Groups" value={`${completedGroups} of ${groups.length}`} />
           <SummaryLine label="Third-place advancers" value={`${completedThirdPlaceAdvancers} of 8`} />
           <SummaryLine label="Knockout picks" value={`${completedKnockoutPicks} of 31`} />
@@ -1053,7 +1053,7 @@ function ReviewStep({
           ) : null}
         </div>
         {!canSubmit ? (
-          <p className="mt-3 text-sm leading-6 text-zinc-600">Complete your name, email, all groups, 8 third-place advancers, and champion pick before submitting.</p>
+          <p className="mt-3 text-sm leading-6 text-zinc-600">Complete your name, all groups, 8 third-place advancers, and champion pick before submitting.</p>
         ) : null}
       </aside>
     </div>
