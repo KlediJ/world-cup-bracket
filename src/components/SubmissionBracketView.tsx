@@ -42,6 +42,27 @@ function getTeamFlag(teamId: string | undefined) {
   return teamId ? teamsById.get(teamId)?.flag ?? "" : "";
 }
 
+function getTeamFlagUrl(teamId: string | undefined) {
+  return teamId ? teamsById.get(teamId)?.flagUrl : undefined;
+}
+
+function TeamFlag({ teamId, className = "h-6 w-9" }: { teamId?: string; className?: string }) {
+  const flagUrl = getTeamFlagUrl(teamId);
+
+  if (flagUrl) {
+    return (
+      <span
+        aria-label={`${getTeamName(teamId)} flag`}
+        role="img"
+        className={`${className} block rounded bg-cover bg-center shadow-sm`}
+        style={{ backgroundImage: `url(${flagUrl})` }}
+      />
+    );
+  }
+
+  return <span className="text-xl leading-none">{getTeamFlag(teamId)}</span>;
+}
+
 function asCalculatedTables(payload: Record<string, unknown>): CalculatedTable[] {
   const tables = payload.calculatedTables;
 
@@ -188,7 +209,7 @@ function getScoreLabel(scores: Record<string, ScorePick>, matchId: string) {
 function TeamPill({ teamId, isWinner }: { teamId?: string; isWinner?: boolean }) {
   return (
     <div className={`grid grid-cols-[32px_minmax(0,1fr)_44px] items-center gap-2 rounded-md border px-2 py-2 ${isWinner ? "border-emerald-500 bg-emerald-50" : "border-zinc-200 bg-white"}`}>
-      <span className="text-xl leading-none">{getTeamFlag(teamId)}</span>
+      <TeamFlag teamId={teamId} className="h-5 w-8" />
       <span className={`min-w-0 truncate text-sm ${isWinner ? "font-black text-emerald-950" : "font-bold text-zinc-700"}`}>
         {getTeamName(teamId)}
       </span>
@@ -232,7 +253,10 @@ function SummaryTeam({ label, teamId }: { label: string; teamId?: string }) {
     <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2">
       <span className="text-xs font-black uppercase tracking-wide text-zinc-500">{label}</span>
       <span className="min-w-0 truncate text-sm font-black text-zinc-950">
-        {getTeamFlag(teamId)} {getTeamName(teamId)}
+        <span className="inline-flex items-center gap-2">
+          <TeamFlag teamId={teamId} />
+          {getTeamName(teamId)}
+        </span>
       </span>
     </div>
   );
@@ -257,7 +281,7 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
             <p className="text-xs font-black uppercase tracking-wide text-amber-200">Locked submission</p>
             <h1 className="mt-3 text-4xl font-black leading-none tracking-tight sm:text-5xl">{submission.playerName}&apos;s bracket</h1>
             <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-emerald-50">
-              Submitted {submittedDate}. This bracket is read-only and cannot be edited.
+              Submitted {submittedDate}. Locked bracket.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <span className="rounded-md bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-wide text-white">
@@ -270,7 +294,7 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
           <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
             <p className="text-xs font-black uppercase tracking-wide text-amber-200">Champion pick</p>
             <div className="mt-3 flex items-center gap-3">
-              <span className="text-4xl">{getTeamFlag(champion)}</span>
+              <TeamFlag teamId={champion} className="h-10 w-16" />
               <div>
                 <p className="text-2xl font-black">{getTeamName(champion)}</p>
                 <p className="text-sm font-bold text-emerald-50">{getTeamCode(champion)}</p>
@@ -292,7 +316,7 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:col-span-2">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Share</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">
-            This page is the confirmation view for the submitted bracket. Save or share this URL to reopen it later.
+            Keep this link handy to reopen the bracket later.
           </p>
         </div>
       </section>

@@ -61,6 +61,27 @@ function getTeamFlag(teamId: string | undefined) {
   return teamId ? teamsById.get(teamId)?.flag ?? "" : "";
 }
 
+function getTeamFlagUrl(teamId: string | undefined) {
+  return teamId ? teamsById.get(teamId)?.flagUrl : undefined;
+}
+
+function TeamFlag({ teamId, className = "h-16 w-24" }: { teamId?: string; className?: string }) {
+  const flagUrl = getTeamFlagUrl(teamId);
+
+  if (flagUrl) {
+    return (
+      <span
+        aria-label={`${getTeamName(teamId)} flag`}
+        role="img"
+        className={`${className} block rounded-xl border border-white/70 bg-cover bg-center shadow-sm`}
+        style={{ backgroundImage: `url(${flagUrl})` }}
+      />
+    );
+  }
+
+  return <span className="text-5xl leading-none">{getTeamFlag(teamId)}</span>;
+}
+
 function createGroupMatches(): GroupMatch[] {
   return groups.flatMap((group) => {
     const [a, b, c, d] = group.teamIds;
@@ -241,6 +262,22 @@ function buildKnockoutRounds(tables: Array<{ table: TableRow[] }>, picks: Record
   ];
 }
 
+function getThirdPlaceTable(tables: Array<{ group: { id: string; name: string }; table: TableRow[] }>) {
+  return tables
+    .map(({ group, table }) => ({
+      group,
+      row: table[2],
+    }))
+    .filter((entry): entry is { group: { id: string; name: string }; row: TableRow } => Boolean(entry.row))
+    .sort(
+      (a, b) =>
+        b.row.points - a.row.points ||
+        b.row.goalDifference - a.row.goalDifference ||
+        b.row.goalsFor - a.row.goalsFor ||
+        getTeamName(a.row.teamId).localeCompare(getTeamName(b.row.teamId)),
+    );
+}
+
 function defaultScore(result: ResultPick) {
   if (result === "home") {
     return { homeScore: 1, awayScore: 0 };
@@ -256,7 +293,9 @@ function defaultScore(result: ResultPick) {
 function TeamFace({ teamId, align = "left" }: { teamId?: string; align?: "left" | "right" }) {
   return (
     <div className={`min-w-0 ${align === "right" ? "text-right" : ""}`}>
-      <div className="text-6xl leading-none sm:text-7xl">{getTeamFlag(teamId)}</div>
+      <div className={`flex ${align === "right" ? "justify-end" : "justify-start"}`}>
+        <TeamFlag teamId={teamId} />
+      </div>
       <p className="mt-3 truncate text-2xl font-black text-zinc-950 sm:text-3xl">{getTeamName(teamId)}</p>
       <p className="mt-1 text-sm font-black text-emerald-700">{getTeamCode(teamId)}</p>
     </div>
@@ -279,6 +318,7 @@ export function GamePredictor() {
 
   const groupMatches = useMemo(() => createGroupMatches(), []);
   const groupTables = useMemo(() => calculateGroupTables(groupMatches, groupPicks), [groupMatches, groupPicks]);
+  const thirdPlaceTable = useMemo(() => getThirdPlaceTable(groupTables), [groupTables]);
   const knockoutRounds = useMemo(() => buildKnockoutRounds(groupTables, knockoutPicks), [groupTables, knockoutPicks]);
   const activeMatch = groupMatches[matchIndex];
   const activeRound = knockoutRounds[activeRoundIndex];
@@ -287,17 +327,27 @@ export function GamePredictor() {
   const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
   const canStart = playerName.trim().length > 0 && hasValidEmail;
   const groupProgress = Object.keys(groupPicks).length;
+  const [lastPickText, setLastPickText] = useState("");
 
   function chooseGroupResult(result: ResultPick) {
     if (!activeMatch) {
       return;
     }
 
+    const score = defaultScore(result);
+    const winnerText =
+      result === "draw"
+        ? `${getTeamName(activeMatch.homeTeamId)} ${score.homeScore}-${score.awayScore} ${getTeamName(activeMatch.awayTeamId)}`
+        : result === "home"
+          ? `${getTeamName(activeMatch.homeTeamId)} wins`
+          : `${getTeamName(activeMatch.awayTeamId)} wins`;
+
+    setLastPickText(winnerText);
     setGroupPicks((current) => ({
       ...current,
       [activeMatch.id]: {
         result,
-        ...defaultScore(result),
+        ...score,
       },
     }));
 
@@ -313,6 +363,7 @@ export function GamePredictor() {
       return;
     }
 
+    setLastPickText(`${getTeamName(teamId)} advances`);
     setKnockoutPicks((current) => {
       const next = { ...current };
 
@@ -445,12 +496,19 @@ export function GamePredictor() {
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
             <div className="h-full rounded-full bg-emerald-600" style={{ width: `${(groupProgress / groupMatches.length) * 100}%` }} />
           </div>
+          {lastPickText ? (
+            <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-black text-zinc-950">{lastPickText}</p>
+          ) : null}
           <div
-            className="mt-5 touch-none rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm"
+            className="mt-5 touch-none rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ring-4 ring-transparent transition active:ring-emerald-100"
             onPointerDown={(event) => setDragStart({ x: event.clientX, y: event.clientY })}
             onPointerUp={(event) => handlePointerUp(event, "group")}
           >
-            <p className="text-center text-xs font-black uppercase tracking-wide text-zinc-500">Swipe right home · left away · down draw</p>
+            <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-black uppercase tracking-wide">
+              <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Left wins</span>
+              <span className="rounded-full bg-zinc-950 px-2 py-1 text-white">Draw</span>
+              <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Right wins</span>
+            </div>
             <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
               <TeamFace teamId={activeMatch.homeTeamId} />
               <span className="grid size-14 place-items-center rounded-full bg-zinc-950 text-lg font-black text-white">VS</span>
@@ -472,6 +530,34 @@ export function GamePredictor() {
         <section className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Generated tables</p>
           <h2 className="mt-2 text-3xl font-black text-zinc-950">Your knockout field is set</h2>
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-700">Third-place race</p>
+                <h3 className="mt-1 text-xl font-black text-zinc-950">Top 8 of 12 advance</h3>
+              </div>
+              <p className="rounded-md bg-zinc-950 px-3 py-2 text-sm font-black text-white">Round of 32 cutoff</p>
+            </div>
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              {thirdPlaceTable.map(({ group, row }, index) => (
+                <div
+                  key={group.id}
+                  className={`grid grid-cols-[32px_40px_minmax(0,1fr)_54px] items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                    index < 8 ? "border border-emerald-200 bg-white text-zinc-950" : "border border-zinc-200 bg-zinc-100 text-zinc-500"
+                  }`}
+                >
+                  <span className={`grid size-7 place-items-center rounded text-xs font-black ${index < 8 ? "bg-emerald-700 text-white" : "bg-zinc-300 text-zinc-700"}`}>
+                    {index + 1}
+                  </span>
+                  <TeamFlag teamId={row.teamId} className="h-6 w-9" />
+                  <span className="min-w-0 truncate font-black">
+                    {getTeamName(row.teamId)} <span className="font-bold text-zinc-500">({group.name})</span>
+                  </span>
+                  <span className="text-right font-black">{row.points} pts</span>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {groupTables.map(({ group, table }) => (
               <article key={group.id} className="rounded-xl border border-zinc-200 bg-[#fbfaf3] p-3">
@@ -480,7 +566,10 @@ export function GamePredictor() {
                   {table.map((row, index) => (
                     <div key={row.teamId} className="grid grid-cols-[24px_1fr_36px] items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm">
                       <span className="font-black text-zinc-400">{index + 1}</span>
-                      <span className="min-w-0 truncate font-bold text-zinc-800">{getTeamFlag(row.teamId)} {getTeamName(row.teamId)}</span>
+                      <span className="flex min-w-0 items-center gap-2 font-bold text-zinc-800">
+                        <TeamFlag teamId={row.teamId} className="h-5 w-8 shrink-0" />
+                        <span className="min-w-0 truncate">{getTeamName(row.teamId)}</span>
+                      </span>
                       <span className="text-right font-black text-emerald-700">{row.points}</span>
                     </div>
                   ))}
@@ -510,6 +599,9 @@ export function GamePredictor() {
             onPointerDown={(event) => setDragStart({ x: event.clientX, y: event.clientY })}
             onPointerUp={(event) => handlePointerUp(event, "knockout")}
           >
+            {lastPickText ? (
+              <p className="mb-4 rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-black text-zinc-950">{lastPickText}</p>
+            ) : null}
             <p className="text-center text-xs font-black uppercase tracking-wide text-zinc-500">Swipe toward the winner</p>
             <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
               <TeamFace teamId={activeKnockoutMatch.homeTeamId} />
@@ -529,7 +621,7 @@ export function GamePredictor() {
           <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Review</p>
           <h2 className="mt-2 text-3xl font-black text-zinc-950">Champion: {getTeamName(champion)}</h2>
           <p className="mt-3 text-sm font-semibold leading-6 text-zinc-600">
-            This submits the same locked prediction format as the detailed predictor.
+            Your picks will lock and open as a shareable bracket view.
           </p>
           <button type="button" disabled={!champion || isPending} onClick={submitGamePrediction} className="mt-5 min-h-12 w-full rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white disabled:bg-zinc-300">
             {isPending ? "Submitting..." : "Submit Locked Prediction"}

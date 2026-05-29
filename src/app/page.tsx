@@ -65,7 +65,14 @@ export default function Home() {
                     aria-label={team.name}
                     role="img"
                   >
-                    <span className="text-2xl leading-none">{team.flag}</span>
+                    {team.flagUrl ? (
+                      <span
+                        className="block h-5 w-7 rounded bg-cover bg-center shadow-sm"
+                        style={{ backgroundImage: `url(${team.flagUrl})` }}
+                      />
+                    ) : (
+                      <span className="text-2xl leading-none">{team.flag}</span>
+                    )}
                     <span className="text-xs font-black text-emerald-50">{team.code}</span>
                   </span>
                 ))}
@@ -103,7 +110,7 @@ export default function Home() {
             <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Matchday cards</p>
             <h2 className="mt-2 text-3xl font-black text-zinc-950">What to watch</h2>
           </div>
-          <span className="rounded-md bg-zinc-950 px-3 py-2 text-xs font-black text-white">UI component</span>
+          <span className="rounded-md bg-zinc-950 px-3 py-2 text-xs font-black text-white">Match focus</span>
         </div>
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
           {matchdayCards.map((card) => (
@@ -133,7 +140,7 @@ export default function Home() {
               <h2 className="mt-2 text-3xl font-black text-zinc-950">Tournament news desk</h2>
             </div>
             <span className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
-              Admin-editable feed
+              Tournament desk
             </span>
           </div>
 

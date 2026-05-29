@@ -2,6 +2,8 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { getLeaderboard } from "@/db/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function LeaderboardPage() {
   const leaderboard = await getLeaderboard();
 
