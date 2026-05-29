@@ -41,6 +41,12 @@ export type AdminSubmissionRow = {
   submittedAt: Date;
 };
 
+export type ChampionPickCount = {
+  teamId: string;
+  teamName: string;
+  count: number;
+};
+
 export async function ensureDefaultPool() {
   const db = getDb();
   const existingPool = await db.query.pools.findFirst({
@@ -174,6 +180,36 @@ export async function getAdminSubmissions(search = ""): Promise<AdminSubmissionR
       }));
   } catch (error) {
     console.error("Admin submissions query failed", error);
+    return [];
+  }
+}
+
+export async function getChampionPickCounts(): Promise<ChampionPickCount[]> {
+  if (!process.env.DATABASE_URL) {
+    return [];
+  }
+
+  try {
+    const rows = await getDb()
+      .select({
+        championTeamId: brackets.championTeamId,
+      })
+      .from(brackets);
+    const counts = new Map<string, number>();
+
+    for (const row of rows) {
+      counts.set(row.championTeamId, (counts.get(row.championTeamId) ?? 0) + 1);
+    }
+
+    return Array.from(counts.entries())
+      .map(([teamId, count]) => ({
+        teamId,
+        teamName: teamsById.get(teamId)?.name ?? teamId,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count || a.teamName.localeCompare(b.teamName));
+  } catch (error) {
+    console.error("Champion pick counts query failed", error);
     return [];
   }
 }

@@ -1,9 +1,14 @@
 import { GamePredictor } from "@/components/GamePredictor";
+import { getChampionPickCounts } from "@/db/queries";
 
-export default function PlayPredictorPage() {
+export const dynamic = "force-dynamic";
+
+export default async function PlayPredictorPage() {
+  const championPickCounts = await getChampionPickCounts();
+
   return (
     <div className="-mt-4 sm:mt-0">
-      <GamePredictor />
+      <GamePredictor championPickCounts={championPickCounts} />
     </div>
   );
 }

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { submitPrediction } from "@/app/predict/actions";
 import { groups } from "@/data/groups";
 import { teamsById } from "@/data/teams";
+import type { ChampionPickCount } from "@/db/queries";
 
 type ResultPick = "home" | "draw" | "away";
 type GameStep = "groups" | "tables" | "knockout" | "review";
 type PickFeedback = {
   direction: "left" | "right" | "down";
   text: string;
+  consequence?: string;
 };
 type PickHistoryItem =
   | {
@@ -65,6 +67,7 @@ type KnockoutRound = {
   title: string;
   matches: KnockoutMatch[];
 };
+type GroupTables = ReturnType<typeof calculateGroupTables>;
 
 const groupAccentColors = ["#0f766e", "#1d4ed8", "#b45309", "#7c3aed", "#0e7490", "#be123c"];
 const PICK_ANIMATION_MS = 320;
@@ -339,6 +342,89 @@ function getThirdPlaceTable(tables: Array<{ group: { id: string; name: string };
     );
 }
 
+function getThirdPlaceThreat(teamId: string | undefined, tables: GroupTables) {
+  if (!teamId) {
+    return "Bubble";
+  }
+
+  const thirdPlaceTable = getThirdPlaceTable(tables);
+  const rank = thirdPlaceTable.findIndex(({ row }) => row.teamId === teamId);
+
+  if (rank === -1) {
+    return "Chasing";
+  }
+
+  if (rank < 5) {
+    return "Safe";
+  }
+
+  if (rank < 8) {
+    return "Bubble";
+  }
+
+  return "Danger";
+}
+
+function getMatchRisk(match: GroupMatch, tables: GroupTables) {
+  const groupTable = tables.find(({ group }) => group.id === match.groupId)?.table ?? [];
+  const homeRank = groupTable.findIndex((row) => row.teamId === match.homeTeamId);
+  const awayRank = groupTable.findIndex((row) => row.teamId === match.awayTeamId);
+
+  if (homeRank >= 0 && awayRank >= 0 && Math.abs(homeRank - awayRank) >= 2) {
+    return "Upset swing";
+  }
+
+  if (homeRank >= 2 || awayRank >= 2) {
+    return "Third-place pressure";
+  }
+
+  return "Group control";
+}
+
+function getPickConsequence(match: GroupMatch, result: ResultPick, matches: GroupMatch[], picks: Record<string, GroupMatchPick>) {
+  const score = defaultScore(result);
+  const simulatedTables = calculateGroupTables(matches, {
+    ...picks,
+    [match.id]: {
+      result,
+      ...score,
+    },
+  });
+  const groupTable = simulatedTables.find(({ group }) => group.id === match.groupId)?.table ?? [];
+  const winnerId = result === "draw" ? undefined : result === "home" ? match.homeTeamId : match.awayTeamId;
+  const winnerRank = winnerId ? groupTable.findIndex((row) => row.teamId === winnerId) + 1 : 0;
+  const homeThreat = getThirdPlaceThreat(match.homeTeamId, simulatedTables);
+  const awayThreat = getThirdPlaceThreat(match.awayTeamId, simulatedTables);
+
+  if (result === "draw") {
+    return `Draw keeps it tight · ${getTeamCode(match.homeTeamId)} ${homeThreat} · ${getTeamCode(match.awayTeamId)} ${awayThreat}`;
+  }
+
+  return `${getTeamName(winnerId)} jumps to #${winnerRank || "?"} · ${getTeamCode(result === "home" ? match.awayTeamId : match.homeTeamId)} ${result === "home" ? awayThreat : homeThreat}`;
+}
+
+function getBracketPersonality(knockoutPicks: Record<string, string>, tables: GroupTables) {
+  const thirdPlaceTeams = new Set(getThirdPlaceTable(tables).slice(0, 8).map(({ row }) => row.teamId));
+  const knockoutWinners = Object.values(knockoutPicks).filter(Boolean);
+  const thirdPlaceWinners = knockoutWinners.filter((teamId) => thirdPlaceTeams.has(teamId)).length;
+  const champion = knockoutPicks["predict-champion"];
+  const groupWinners = new Set(tables.map(({ table }) => table[0]?.teamId).filter(Boolean));
+
+  if (champion && thirdPlaceTeams.has(champion)) {
+    return "Chaos bracket";
+  }
+
+  if (thirdPlaceWinners >= 5) {
+    return "Upset merchant";
+  }
+
+  if (champion && groupWinners.has(champion)) {
+    return "Favorite-heavy";
+  }
+
+  return "Pressure cooker";
+}
+
 function defaultScore(result: ResultPick) {
   if (result === "home") {
     return { homeScore: 1, awayScore: 0 };
@@ -396,7 +482,7 @@ function vibratePick() {
   }
 }
 
-export function GamePredictor() {
+export function GamePredictor({ championPickCounts }: { championPickCounts: ChampionPickCount[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<GameStep>("groups");
@@ -416,7 +502,6 @@ export function GamePredictor() {
   const [pickHistory, setPickHistory] = useState<PickHistoryItem[]>([]);
   const [streak, setStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(false);
 
   const groupMatches = useMemo(() => createGroupMatches(), []);
   const groupTables = useMemo(() => calculateGroupTables(groupMatches, groupPicks), [groupMatches, groupPicks]);
@@ -431,6 +516,19 @@ export function GamePredictor() {
   const groupProgress = Object.keys(groupPicks).length;
   const currentGroupIndex = activeMatch ? groups.findIndex((group) => group.id === activeMatch.groupId) : 0;
   const groupAccent = groupAccentColors[Math.max(currentGroupIndex, 0) % groupAccentColors.length];
+  const visualGroupProgress = Math.max(12, (groupProgress / groupMatches.length) * 100);
+  const matchRisk = activeMatch ? getMatchRisk(activeMatch, groupTables) : "";
+  const activeHomeThreat = activeMatch ? getThirdPlaceThreat(activeMatch.homeTeamId, groupTables) : "";
+  const activeAwayThreat = activeMatch ? getThirdPlaceThreat(activeMatch.awayTeamId, groupTables) : "";
+  const personality = getBracketPersonality(knockoutPicks, groupTables);
+  const championPickCount = championPickCounts.find((item) => item.teamId === champion)?.count ?? 0;
+  const topChampionPick = championPickCounts[0];
+  const lockInMessage =
+    step === "groups" && groupMatches.length - groupProgress <= 5
+      ? `${groupMatches.length - groupProgress} group picks from knockouts`
+      : step === "knockout" && !champion
+        ? "Final path almost built"
+        : "Fast path";
   const dragIntent =
     dragOffset.y > SWIPE_THRESHOLD && Math.abs(dragOffset.y) > Math.abs(dragOffset.x)
       ? "down"
@@ -451,7 +549,7 @@ export function GamePredictor() {
     setIsResolvingPick(true);
     setPickFeedback(feedback);
     setDragOffset({ x: 0, y: 0 });
-    playPickSound(soundEnabled, feedback.direction);
+    playPickSound(true, feedback.direction);
     vibratePick();
   }
 
@@ -477,7 +575,7 @@ export function GamePredictor() {
           : `${getTeamName(currentMatch.awayTeamId)} wins`;
     const direction = result === "draw" ? "down" : result === "home" ? "right" : "left";
 
-    triggerFeedback({ direction, text: winnerText });
+    triggerFeedback({ direction, text: winnerText, consequence: getPickConsequence(currentMatch, result, groupMatches, groupPicks) });
 
     window.setTimeout(() => {
       setGroupPicks((current) => ({
@@ -665,16 +763,17 @@ export function GamePredictor() {
   return (
     <div className="mx-auto max-w-4xl space-y-3">
       <section className="sticky top-[73px] z-10 overflow-hidden rounded-2xl border border-zinc-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
           <div className="min-w-0">
             <p className="truncate text-xs font-black uppercase tracking-wide text-emerald-700">
               {step === "groups" ? `${activeMatch?.groupName ?? "Groups"} · ${groupProgress}/72` : step}
             </p>
+            <p className="mt-1 truncate text-[11px] font-black text-zinc-500">{lockInMessage}</p>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
               <div
                 className="h-full rounded-full transition-all"
                 style={{
-                  width: step === "groups" ? `${(groupProgress / groupMatches.length) * 100}%` : champion ? "100%" : "68%",
+                  width: step === "groups" ? `${visualGroupProgress}%` : champion ? "100%" : "68%",
                   backgroundColor: step === "groups" ? groupAccent : "#047857",
                 }}
               />
@@ -684,13 +783,6 @@ export function GamePredictor() {
             <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">{streakLabel}</p>
             <p className="text-lg font-black text-emerald-950">{streak}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setSoundEnabled((current) => !current)}
-            className={`rounded-lg px-3 py-2 text-xs font-black transition ${soundEnabled ? "bg-amber-300 text-zinc-950" : "bg-zinc-950 text-white"}`}
-          >
-            {soundEnabled ? "Sound On" : "Sound Off"}
-          </button>
         </div>
       </section>
 
@@ -720,7 +812,7 @@ export function GamePredictor() {
                 Keep Picking
               </button>
               <button type="button" onClick={undoLastPick} className="min-h-12 rounded-lg border border-white/20 bg-white/10 px-5 py-3 text-sm font-black text-white hover:bg-white/15">
-                Undo Last Pick
+                Back
               </button>
             </div>
           </div>
@@ -751,14 +843,21 @@ export function GamePredictor() {
             onPointerCancel={cancelDrag}
           >
             {pickFeedback ? (
-              <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-3xl font-black text-white">
-                {pickFeedback.text}
+              <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-white">
+                <div>
+                  <p className="text-3xl font-black">{pickFeedback.text}</p>
+                  {pickFeedback.consequence ? <p className="mt-3 text-sm font-black text-emerald-50">{pickFeedback.consequence}</p> : null}
+                </div>
               </div>
             ) : null}
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-black uppercase tracking-wide">
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Left wins</span>
-              <span className="rounded-full bg-zinc-950 px-2 py-1 text-white">Draw</span>
+              <span className="rounded-full bg-zinc-950 px-2 py-1 text-white">{matchRisk}</span>
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Right wins</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-black">
+              <span className="rounded-lg bg-white px-3 py-2 text-emerald-800">{getTeamCode(activeMatch.homeTeamId)} {activeHomeThreat}</span>
+              <span className="rounded-lg bg-white px-3 py-2 text-right text-emerald-800">{getTeamCode(activeMatch.awayTeamId)} {activeAwayThreat}</span>
             </div>
             {dragIntent ? (
               <div className="mt-4 rounded-xl bg-white px-4 py-3 text-center text-lg font-black text-zinc-950 shadow-sm">
@@ -780,9 +879,6 @@ export function GamePredictor() {
             <button type="button" disabled={isResolvingPick} onClick={() => chooseGroupResult("draw")} className="min-h-12 rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">Draw</button>
             <button type="button" disabled={isResolvingPick} onClick={() => chooseGroupResult("away")} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">Away wins</button>
           </div>
-          <button type="button" onClick={undoLastPick} disabled={pickHistory.length === 0 || isResolvingPick} className="mt-3 min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-800 disabled:opacity-40">
-            Undo Last Pick
-          </button>
         </section>
       ) : null}
 
@@ -888,10 +984,38 @@ export function GamePredictor() {
             <button type="button" disabled={isResolvingPick} onClick={() => chooseKnockoutWinner(activeKnockoutMatch.homeTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">{getTeamName(activeKnockoutMatch.homeTeamId)}</button>
             <button type="button" disabled={isResolvingPick} onClick={() => chooseKnockoutWinner(activeKnockoutMatch.awayTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">{getTeamName(activeKnockoutMatch.awayTeamId)}</button>
           </div>
-          <button type="button" onClick={undoLastPick} disabled={pickHistory.length === 0 || isResolvingPick} className="mt-3 min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-800 disabled:opacity-40">
-            Undo Last Pick
-          </button>
         </section>
+      ) : null}
+
+      {(step === "groups" || step === "knockout") && checkpointGroupIndex === null ? (
+        <nav className="sticky bottom-3 z-20 mx-auto max-w-md rounded-2xl border border-zinc-200 bg-zinc-950/95 p-2 text-white shadow-xl backdrop-blur">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <button
+              type="button"
+              onClick={undoLastPick}
+              disabled={pickHistory.length === 0 || isResolvingPick}
+              className="min-h-11 rounded-xl bg-white/10 px-4 py-2 text-sm font-black transition hover:bg-white/15 disabled:opacity-30"
+            >
+              Back
+            </button>
+            <div className="px-2 text-center">
+              <p className="text-[10px] font-black uppercase tracking-wide text-amber-200">Best</p>
+              <p className="text-base font-black">{maxStreak}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (step === "groups" && groupProgress === groupMatches.length) {
+                  setStep("tables");
+                }
+              }}
+              disabled={step !== "groups" || groupProgress !== groupMatches.length}
+              className="min-h-11 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black transition hover:bg-emerald-700 disabled:bg-white/10 disabled:opacity-30"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
       ) : null}
 
       {step === "review" ? (
@@ -900,7 +1024,7 @@ export function GamePredictor() {
             <p className="text-xs font-black uppercase tracking-wide text-amber-200">Final path complete</p>
             <h2 className="mt-2 text-4xl font-black tracking-tight">Champion: {getTeamName(champion)}</h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-emerald-50">
-              {maxStreak} best streak · {Object.keys(knockoutPicks).length} knockout picks · ready to lock
+              {personality} · {maxStreak} best streak · {Object.keys(knockoutPicks).length} knockout picks
             </p>
           </div>
           <div className="p-5 sm:p-6">
@@ -911,6 +1035,22 @@ export function GamePredictor() {
                   <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Your winner</p>
                   <p className="text-2xl font-black text-emerald-950">{getTeamName(champion)}</p>
                 </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Bracket type</p>
+                <p className="mt-2 text-xl font-black text-zinc-950">{personality}</p>
+              </div>
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Friends pool</p>
+                <p className="mt-2 text-sm font-black leading-6 text-zinc-950">
+                  {championPickCount > 0
+                    ? `${championPickCount} submitted bracket${championPickCount === 1 ? "" : "s"} already picked ${getTeamName(champion)}`
+                    : topChampionPick
+                      ? `${topChampionPick.teamName} is the current crowd pick`
+                      : "You are setting the early tone"}
+                </p>
               </div>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
