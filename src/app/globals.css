@@ -32,16 +32,40 @@ body {
   will-change: transform, opacity;
 }
 
+.game-pick-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.game-pick-card.is-dragging-right::before {
+  background: linear-gradient(90deg, rgb(16 185 129 / 0.32), transparent 58%);
+  opacity: 1;
+}
+
+.game-pick-card.is-dragging-left::before {
+  background: linear-gradient(270deg, rgb(16 185 129 / 0.32), transparent 58%);
+  opacity: 1;
+}
+
+.game-pick-card.is-dragging-down::before {
+  background: linear-gradient(180deg, rgb(251 191 36 / 0.38), transparent 65%);
+  opacity: 1;
+}
+
 .game-pick-card.is-picking-right {
-  animation: pick-card-right 360ms ease-out both;
+  animation: pick-card-right 320ms ease-out both;
 }
 
 .game-pick-card.is-picking-left {
-  animation: pick-card-left 360ms ease-out both;
+  animation: pick-card-left 320ms ease-out both;
 }
 
 .game-pick-card.is-picking-down {
-  animation: pick-card-down 360ms ease-out both;
+  animation: pick-card-down 320ms ease-out both;
 }
 
 @keyframes flag-strip-scroll {

@@ -12,6 +12,18 @@ type PickFeedback = {
   direction: "left" | "right" | "down";
   text: string;
 };
+type PickHistoryItem =
+  | {
+      phase: "group";
+      matchId: string;
+      matchIndex: number;
+    }
+  | {
+      phase: "knockout";
+      matchId: string;
+      roundIndex: number;
+      knockoutIndex: number;
+    };
 
 type GroupMatch = {
   id: string;
@@ -52,6 +64,8 @@ type KnockoutRound = {
 };
 
 const stepOrder: GameStep[] = ["entry", "groups", "tables", "knockout", "review"];
+const groupAccentColors = ["#0f766e", "#1d4ed8", "#b45309", "#7c3aed", "#0e7490", "#be123c"];
+const PICK_ANIMATION_MS = 320;
 
 function getTeamName(teamId: string | undefined, fallback = "TBD") {
   return teamId ? teamsById.get(teamId)?.name ?? fallback : fallback;
@@ -306,6 +320,39 @@ function TeamFace({ teamId, align = "left" }: { teamId?: string; align?: "left" 
   );
 }
 
+function playPickSound(enabled: boolean, direction: PickFeedback["direction"]) {
+  if (!enabled || typeof window === "undefined") {
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext;
+
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const context = new AudioContextClass();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const frequency = direction === "down" ? 260 : direction === "right" ? 430 : 360;
+
+  oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+  oscillator.type = "triangle";
+  gain.gain.setValueAtTime(0.001, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.16);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.18);
+}
+
+function vibratePick() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(18);
+  }
+}
+
 export function GamePredictor() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -318,9 +365,15 @@ export function GamePredictor() {
   const [groupPicks, setGroupPicks] = useState<Record<string, GroupMatchPick>>({});
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({});
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [statusMessage, setStatusMessage] = useState("");
   const [pickFeedback, setPickFeedback] = useState<PickFeedback | null>(null);
   const [isResolvingPick, setIsResolvingPick] = useState(false);
+  const [checkpointGroupIndex, setCheckpointGroupIndex] = useState<number | null>(null);
+  const [pickHistory, setPickHistory] = useState<PickHistoryItem[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(false);
 
   const groupMatches = useMemo(() => createGroupMatches(), []);
   const groupTables = useMemo(() => calculateGroupTables(groupMatches, groupPicks), [groupMatches, groupPicks]);
@@ -333,6 +386,39 @@ export function GamePredictor() {
   const hasValidEmail = !playerEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
   const canStart = playerName.trim().length > 0 && hasValidEmail;
   const groupProgress = Object.keys(groupPicks).length;
+  const currentGroupIndex = activeMatch ? groups.findIndex((group) => group.id === activeMatch.groupId) : 0;
+  const groupAccent = groupAccentColors[Math.max(currentGroupIndex, 0) % groupAccentColors.length];
+  const dragIntent =
+    dragOffset.y > 55 && Math.abs(dragOffset.y) > Math.abs(dragOffset.x)
+      ? "down"
+      : dragOffset.x > 55
+        ? "right"
+        : dragOffset.x < -55
+          ? "left"
+          : null;
+  const dragStyle =
+    dragStart && !pickFeedback
+      ? {
+          transform: `translate(${Math.max(Math.min(dragOffset.x, 80), -80)}px, ${Math.max(Math.min(dragOffset.y, 70), -20)}px) rotate(${Math.max(Math.min(dragOffset.x / 22, 5), -5)}deg)`,
+        }
+      : undefined;
+  const streakLabel = streak >= 20 ? "on fire" : streak >= 10 ? "hot streak" : streak >= 5 ? "streak" : "momentum";
+
+  function triggerFeedback(feedback: PickFeedback) {
+    setIsResolvingPick(true);
+    setPickFeedback(feedback);
+    setDragOffset({ x: 0, y: 0 });
+    playPickSound(soundEnabled, feedback.direction);
+    vibratePick();
+  }
+
+  function bumpStreak() {
+    setStreak((current) => {
+      const next = current + 1;
+      setMaxStreak((best) => Math.max(best, next));
+      return next;
+    });
+  }
   function chooseGroupResult(result: ResultPick) {
     if (!activeMatch || isResolvingPick) {
       return;
@@ -348,8 +434,7 @@ export function GamePredictor() {
           : `${getTeamName(currentMatch.awayTeamId)} wins`;
     const direction = result === "draw" ? "down" : result === "home" ? "right" : "left";
 
-    setIsResolvingPick(true);
-    setPickFeedback({ direction, text: winnerText });
+    triggerFeedback({ direction, text: winnerText });
 
     window.setTimeout(() => {
       setGroupPicks((current) => ({
@@ -359,16 +444,23 @@ export function GamePredictor() {
           ...score,
         },
       }));
+      setPickHistory((current) => [...current, { phase: "group", matchId: currentMatch.id, matchIndex }]);
+      bumpStreak();
 
       if (matchIndex < groupMatches.length - 1) {
-        setMatchIndex((current) => current + 1);
+        const nextIndex = matchIndex + 1;
+        setMatchIndex(nextIndex);
+
+        if (nextIndex % 6 === 0) {
+          setCheckpointGroupIndex(Math.floor((nextIndex - 1) / 6));
+        }
       } else {
         setStep("tables");
       }
 
       setPickFeedback(null);
       setIsResolvingPick(false);
-    }, 360);
+    }, PICK_ANIMATION_MS);
   }
 
   function chooseKnockoutWinner(teamId: string | undefined) {
@@ -380,8 +472,7 @@ export function GamePredictor() {
     const currentRound = activeRound;
     const direction = teamId === currentMatch.homeTeamId ? "right" : "left";
 
-    setIsResolvingPick(true);
-    setPickFeedback({ direction, text: `${getTeamName(teamId)} advances` });
+    triggerFeedback({ direction, text: `${getTeamName(teamId)} advances` });
 
     window.setTimeout(() => {
       setKnockoutPicks((current) => {
@@ -394,6 +485,8 @@ export function GamePredictor() {
         next[currentMatch.id] = teamId;
         return next;
       });
+      setPickHistory((current) => [...current, { phase: "knockout", matchId: currentMatch.id, roundIndex: activeRoundIndex, knockoutIndex: activeKnockoutIndex }]);
+      bumpStreak();
 
       if (activeKnockoutIndex < currentRound.matches.length - 1) {
         setActiveKnockoutIndex((current) => current + 1);
@@ -406,7 +499,7 @@ export function GamePredictor() {
 
       setPickFeedback(null);
       setIsResolvingPick(false);
-    }, 360);
+    }, PICK_ANIMATION_MS);
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>, mode: "group" | "knockout") {
@@ -417,6 +510,7 @@ export function GamePredictor() {
     const dx = event.clientX - dragStart.x;
     const dy = event.clientY - dragStart.y;
     setDragStart(null);
+    setDragOffset({ x: 0, y: 0 });
 
     if (mode === "group") {
       if (dy > 70 && Math.abs(dy) > Math.abs(dx)) {
@@ -433,17 +527,78 @@ export function GamePredictor() {
     }
   }
 
-  function goBackOneGroupMatch() {
-    setMatchIndex((current) => Math.max(current - 1, 0));
-    const previousMatch = groupMatches[Math.max(matchIndex - 1, 0)];
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (isResolvingPick) {
+      return;
+    }
 
-    if (previousMatch) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragStart({ x: event.clientX, y: event.clientY });
+    setDragOffset({ x: 0, y: 0 });
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!dragStart || isResolvingPick) {
+      return;
+    }
+
+    setDragOffset({
+      x: event.clientX - dragStart.x,
+      y: event.clientY - dragStart.y,
+    });
+  }
+
+  function cancelDrag() {
+    setDragStart(null);
+    setDragOffset({ x: 0, y: 0 });
+  }
+
+  function undoLastPick() {
+    const lastPick = pickHistory[pickHistory.length - 1];
+
+    if (!lastPick || isResolvingPick) {
+      return;
+    }
+
+    setPickHistory((current) => current.slice(0, -1));
+    setStreak(0);
+    setCheckpointGroupIndex(null);
+    setPickFeedback(null);
+    setDragStart(null);
+    setDragOffset({ x: 0, y: 0 });
+
+    if (lastPick.phase === "group") {
       setGroupPicks((current) => {
         const next = { ...current };
-        delete next[previousMatch.id];
+        delete next[lastPick.matchId];
         return next;
       });
+      setMatchIndex(lastPick.matchIndex);
+      setStep("groups");
+      return;
     }
+
+    setKnockoutPicks((current) => {
+      const next = { ...current };
+      delete next[lastPick.matchId];
+
+      for (const matchId of getDownstreamMatches(lastPick.matchId)) {
+        delete next[matchId];
+      }
+
+      return next;
+    });
+    setActiveRoundIndex(lastPick.roundIndex);
+    setActiveKnockoutIndex(lastPick.knockoutIndex);
+    setStep("knockout");
+  }
+
+  function continuePastCheckpoint() {
+    if (checkpointGroupIndex === null) {
+      return;
+    }
+
+    setCheckpointGroupIndex(null);
   }
 
   function submitGamePrediction() {
@@ -466,6 +621,31 @@ export function GamePredictor() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
+      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="grid gap-3 p-4 sm:grid-cols-4">
+          <div className="rounded-xl bg-emerald-50 p-3">
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{streakLabel}</p>
+            <p className="mt-1 text-3xl font-black text-emerald-950">{streak}</p>
+          </div>
+          <div className="rounded-xl bg-zinc-50 p-3">
+            <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Best run</p>
+            <p className="mt-1 text-3xl font-black text-zinc-950">{maxStreak}</p>
+          </div>
+          <div className="rounded-xl bg-zinc-50 p-3">
+            <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Group picks</p>
+            <p className="mt-1 text-3xl font-black text-zinc-950">{groupProgress}/72</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSoundEnabled((current) => !current)}
+            className={`rounded-xl p-3 text-left transition ${soundEnabled ? "bg-amber-300 text-zinc-950" : "bg-zinc-950 text-white"}`}
+          >
+            <span className="block text-xs font-black uppercase tracking-wide opacity-80">Sound</span>
+            <span className="mt-1 block text-2xl font-black">{soundEnabled ? "On" : "Off"}</span>
+          </button>
+        </div>
+      </section>
+
       <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
         <div className="grid gap-2 sm:grid-cols-5">
           {stepOrder.map((item, index) => (
@@ -506,11 +686,42 @@ export function GamePredictor() {
         </section>
       ) : null}
 
-      {step === "groups" && activeMatch ? (
+      {step === "groups" && checkpointGroupIndex !== null ? (
+        <section className="relative overflow-hidden rounded-3xl border border-emerald-900/20 bg-zinc-950 p-5 text-white shadow-sm sm:p-8">
+          <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(90deg,rgba(255,255,255,.65)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:54px_54px]" />
+          <div className="relative">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-200">Group locked</p>
+            <h2 className="mt-2 text-4xl font-black tracking-tight">{groups[checkpointGroupIndex]?.name} complete</h2>
+            <p className="mt-3 text-sm font-semibold text-zinc-300">Winner, runner-up, and third-place pressure are now live.</p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {groupTables[checkpointGroupIndex]?.table.slice(0, 3).map((row, index) => (
+                <div key={row.teamId} className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <TeamFlag teamId={row.teamId} className="h-9 w-14" />
+                    <span className="rounded-md bg-amber-300 px-2 py-1 text-xs font-black text-zinc-950">#{index + 1}</span>
+                  </div>
+                  <p className="mt-3 text-lg font-black">{getTeamName(row.teamId)}</p>
+                  <p className="mt-1 text-sm font-bold text-zinc-300">{row.points} pts · GD {row.goalDifference}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={continuePastCheckpoint} className="min-h-12 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700">
+                Keep Picking
+              </button>
+              <button type="button" onClick={undoLastPick} className="min-h-12 rounded-lg border border-white/20 bg-white/10 px-5 py-3 text-sm font-black text-white hover:bg-white/15">
+                Undo Last Pick
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {step === "groups" && activeMatch && checkpointGroupIndex === null ? (
         <section className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{activeMatch.groupName}</p>
+              <p className="text-xs font-black uppercase tracking-wide" style={{ color: groupAccent }}>{activeMatch.groupName}</p>
               <h2 className="mt-1 text-2xl font-black text-zinc-950">Pick the result</h2>
             </div>
             <p className="rounded-md bg-zinc-950 px-3 py-2 text-sm font-black text-white">
@@ -518,12 +729,16 @@ export function GamePredictor() {
             </p>
           </div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
-            <div className="h-full rounded-full bg-emerald-600" style={{ width: `${(groupProgress / groupMatches.length) * 100}%` }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${(groupProgress / groupMatches.length) * 100}%`, backgroundColor: groupAccent }} />
           </div>
           <div
-            className={`game-pick-card relative mt-5 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ring-4 ring-transparent transition active:ring-emerald-100 ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
-            onPointerDown={(event) => setDragStart({ x: event.clientX, y: event.clientY })}
+            className={`game-pick-card relative mt-5 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ring-4 ring-transparent transition active:ring-emerald-100 ${dragIntent ? `is-dragging-${dragIntent}` : ""} ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
+            style={dragStyle}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
             onPointerUp={(event) => handlePointerUp(event, "group")}
+            onPointerCancel={cancelDrag}
+            onPointerLeave={cancelDrag}
           >
             {pickFeedback ? (
               <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-3xl font-black text-white">
@@ -535,6 +750,15 @@ export function GamePredictor() {
               <span className="rounded-full bg-zinc-950 px-2 py-1 text-white">Draw</span>
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Right wins</span>
             </div>
+            {dragIntent ? (
+              <div className="mt-4 rounded-xl bg-white px-4 py-3 text-center text-lg font-black text-zinc-950 shadow-sm">
+                {dragIntent === "down"
+                  ? "Locking in a draw"
+                  : dragIntent === "right"
+                    ? `${getTeamName(activeMatch.homeTeamId)} wins`
+                    : `${getTeamName(activeMatch.awayTeamId)} wins`}
+              </div>
+            ) : null}
             <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
               <TeamFace teamId={activeMatch.homeTeamId} />
               <span className="grid size-14 place-items-center rounded-full bg-zinc-950 text-lg font-black text-white">VS</span>
@@ -546,16 +770,21 @@ export function GamePredictor() {
             <button type="button" disabled={isResolvingPick} onClick={() => chooseGroupResult("draw")} className="min-h-12 rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">Draw</button>
             <button type="button" disabled={isResolvingPick} onClick={() => chooseGroupResult("away")} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">Away wins</button>
           </div>
-          <button type="button" onClick={goBackOneGroupMatch} disabled={matchIndex === 0} className="mt-3 min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-800 disabled:opacity-40">
-            Back one match
+          <button type="button" onClick={undoLastPick} disabled={pickHistory.length === 0 || isResolvingPick} className="mt-3 min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-800 disabled:opacity-40">
+            Undo Last Pick
           </button>
         </section>
       ) : null}
 
       {step === "tables" ? (
         <section className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Generated tables</p>
-          <h2 className="mt-2 text-3xl font-black text-zinc-950">Your knockout field is set</h2>
+          <div className="rounded-3xl bg-zinc-950 p-5 text-white">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-200">Group stage locked</p>
+            <h2 className="mt-2 text-4xl font-black tracking-tight">Round of 32 unlocked</h2>
+            <p className="mt-3 text-sm font-semibold text-zinc-300">
+              {groupProgress} picks made · best streak {maxStreak} · third-place cutoff decided
+            </p>
+          </div>
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -621,9 +850,13 @@ export function GamePredictor() {
             </p>
           </div>
           <div
-            className={`game-pick-card relative mt-5 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
-            onPointerDown={(event) => setDragStart({ x: event.clientX, y: event.clientY })}
+            className={`game-pick-card relative mt-5 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ${dragIntent ? `is-dragging-${dragIntent}` : ""} ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
+            style={dragStyle}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
             onPointerUp={(event) => handlePointerUp(event, "knockout")}
+            onPointerCancel={cancelDrag}
+            onPointerLeave={cancelDrag}
           >
             {pickFeedback ? (
               <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-3xl font-black text-white">
@@ -631,6 +864,11 @@ export function GamePredictor() {
               </div>
             ) : null}
             <p className="text-center text-xs font-black uppercase tracking-wide text-zinc-500">Swipe toward the winner</p>
+            {dragIntent && dragIntent !== "down" ? (
+              <div className="mt-4 rounded-xl bg-white px-4 py-3 text-center text-lg font-black text-zinc-950 shadow-sm">
+                {dragIntent === "right" ? `${getTeamName(activeKnockoutMatch.homeTeamId)} advances` : `${getTeamName(activeKnockoutMatch.awayTeamId)} advances`}
+              </div>
+            ) : null}
             <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
               <TeamFace teamId={activeKnockoutMatch.homeTeamId} />
               <span className="grid size-14 place-items-center rounded-full bg-zinc-950 text-lg font-black text-white">VS</span>
@@ -641,19 +879,35 @@ export function GamePredictor() {
             <button type="button" disabled={isResolvingPick} onClick={() => chooseKnockoutWinner(activeKnockoutMatch.homeTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">{getTeamName(activeKnockoutMatch.homeTeamId)}</button>
             <button type="button" disabled={isResolvingPick} onClick={() => chooseKnockoutWinner(activeKnockoutMatch.awayTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">{getTeamName(activeKnockoutMatch.awayTeamId)}</button>
           </div>
+          <button type="button" onClick={undoLastPick} disabled={pickHistory.length === 0 || isResolvingPick} className="mt-3 min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-800 disabled:opacity-40">
+            Undo Last Pick
+          </button>
         </section>
       ) : null}
 
       {step === "review" ? (
-        <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Review</p>
-          <h2 className="mt-2 text-3xl font-black text-zinc-950">Champion: {getTeamName(champion)}</h2>
-          <p className="mt-3 text-sm font-semibold leading-6 text-zinc-600">
-            Your picks will lock and open as a shareable bracket view.
-          </p>
+        <section className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
+          <div className="bg-emerald-800 p-5 text-white sm:p-6">
+            <p className="text-xs font-black uppercase tracking-wide text-amber-200">Final path complete</p>
+            <h2 className="mt-2 text-4xl font-black tracking-tight">Champion: {getTeamName(champion)}</h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-emerald-50">
+              {maxStreak} best streak · {Object.keys(knockoutPicks).length} knockout picks · ready to lock
+            </p>
+          </div>
+          <div className="p-5 sm:p-6">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-center gap-4">
+                <TeamFlag teamId={champion} className="h-12 w-20" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Your winner</p>
+                  <p className="text-2xl font-black text-emerald-950">{getTeamName(champion)}</p>
+                </div>
+              </div>
+            </div>
           <button type="button" disabled={!champion || isPending} onClick={submitGamePrediction} className="mt-5 min-h-12 w-full rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white disabled:bg-zinc-300">
             {isPending ? "Submitting..." : "Submit Locked Prediction"}
           </button>
+          </div>
         </section>
       ) : null}
     </div>
