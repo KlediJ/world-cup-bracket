@@ -12,7 +12,6 @@ type GameStep = "groups" | "tables" | "knockout" | "review";
 type PickFeedback = {
   direction: "left" | "right" | "down";
   text: string;
-  consequence?: string;
 };
 type PickHistoryItem =
   | {
@@ -342,67 +341,6 @@ function getThirdPlaceTable(tables: Array<{ group: { id: string; name: string };
     );
 }
 
-function getThirdPlaceThreat(teamId: string | undefined, tables: GroupTables) {
-  if (!teamId) {
-    return "Bubble";
-  }
-
-  const thirdPlaceTable = getThirdPlaceTable(tables);
-  const rank = thirdPlaceTable.findIndex(({ row }) => row.teamId === teamId);
-
-  if (rank === -1) {
-    return "Chasing";
-  }
-
-  if (rank < 5) {
-    return "Safe";
-  }
-
-  if (rank < 8) {
-    return "Bubble";
-  }
-
-  return "Danger";
-}
-
-function getMatchRisk(match: GroupMatch, tables: GroupTables) {
-  const groupTable = tables.find(({ group }) => group.id === match.groupId)?.table ?? [];
-  const homeRank = groupTable.findIndex((row) => row.teamId === match.homeTeamId);
-  const awayRank = groupTable.findIndex((row) => row.teamId === match.awayTeamId);
-
-  if (homeRank >= 0 && awayRank >= 0 && Math.abs(homeRank - awayRank) >= 2) {
-    return "Upset swing";
-  }
-
-  if (homeRank >= 2 || awayRank >= 2) {
-    return "Third-place pressure";
-  }
-
-  return "Group control";
-}
-
-function getPickConsequence(match: GroupMatch, result: ResultPick, matches: GroupMatch[], picks: Record<string, GroupMatchPick>) {
-  const score = defaultScore(result);
-  const simulatedTables = calculateGroupTables(matches, {
-    ...picks,
-    [match.id]: {
-      result,
-      ...score,
-    },
-  });
-  const groupTable = simulatedTables.find(({ group }) => group.id === match.groupId)?.table ?? [];
-  const winnerId = result === "draw" ? undefined : result === "home" ? match.homeTeamId : match.awayTeamId;
-  const winnerRank = winnerId ? groupTable.findIndex((row) => row.teamId === winnerId) + 1 : 0;
-  const homeThreat = getThirdPlaceThreat(match.homeTeamId, simulatedTables);
-  const awayThreat = getThirdPlaceThreat(match.awayTeamId, simulatedTables);
-
-  if (result === "draw") {
-    return `Draw keeps it tight · ${getTeamCode(match.homeTeamId)} ${homeThreat} · ${getTeamCode(match.awayTeamId)} ${awayThreat}`;
-  }
-
-  return `${getTeamName(winnerId)} jumps to #${winnerRank || "?"} · ${getTeamCode(result === "home" ? match.awayTeamId : match.homeTeamId)} ${result === "home" ? awayThreat : homeThreat}`;
-}
-
 function getBracketPersonality(knockoutPicks: Record<string, string>, tables: GroupTables) {
   const thirdPlaceTeams = new Set(getThirdPlaceTable(tables).slice(0, 8).map(({ row }) => row.teamId));
   const knockoutWinners = Object.values(knockoutPicks).filter(Boolean);
@@ -517,9 +455,6 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
   const currentGroupIndex = activeMatch ? groups.findIndex((group) => group.id === activeMatch.groupId) : 0;
   const groupAccent = groupAccentColors[Math.max(currentGroupIndex, 0) % groupAccentColors.length];
   const visualGroupProgress = Math.max(12, (groupProgress / groupMatches.length) * 100);
-  const matchRisk = activeMatch ? getMatchRisk(activeMatch, groupTables) : "";
-  const activeHomeThreat = activeMatch ? getThirdPlaceThreat(activeMatch.homeTeamId, groupTables) : "";
-  const activeAwayThreat = activeMatch ? getThirdPlaceThreat(activeMatch.awayTeamId, groupTables) : "";
   const personality = getBracketPersonality(knockoutPicks, groupTables);
   const championPickCount = championPickCounts.find((item) => item.teamId === champion)?.count ?? 0;
   const topChampionPick = championPickCounts[0];
@@ -575,7 +510,7 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
           : `${getTeamName(currentMatch.awayTeamId)} wins`;
     const direction = result === "draw" ? "down" : result === "home" ? "right" : "left";
 
-    triggerFeedback({ direction, text: winnerText, consequence: getPickConsequence(currentMatch, result, groupMatches, groupPicks) });
+    triggerFeedback({ direction, text: winnerText });
 
     window.setTimeout(() => {
       setGroupPicks((current) => ({
@@ -844,20 +779,13 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
           >
             {pickFeedback ? (
               <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-white">
-                <div>
-                  <p className="text-3xl font-black">{pickFeedback.text}</p>
-                  {pickFeedback.consequence ? <p className="mt-3 text-sm font-black text-emerald-50">{pickFeedback.consequence}</p> : null}
-                </div>
+                <p className="text-3xl font-black">{pickFeedback.text}</p>
               </div>
             ) : null}
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-black uppercase tracking-wide">
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Left wins</span>
-              <span className="rounded-full bg-zinc-950 px-2 py-1 text-white">{matchRisk}</span>
+              <span className="rounded-full bg-zinc-950 px-2 py-1 text-white">Draw</span>
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Right wins</span>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-black">
-              <span className="rounded-lg bg-white px-3 py-2 text-emerald-800">{getTeamCode(activeMatch.homeTeamId)} {activeHomeThreat}</span>
-              <span className="rounded-lg bg-white px-3 py-2 text-right text-emerald-800">{getTeamCode(activeMatch.awayTeamId)} {activeAwayThreat}</span>
             </div>
             {dragIntent ? (
               <div className="mt-4 rounded-xl bg-white px-4 py-3 text-center text-lg font-black text-zinc-950 shadow-sm">
