@@ -1,6 +1,6 @@
 import type { Team } from "@/types/bracket";
 
-const flagUrl = (code: string) => `https://flagcdn.com/w40/${code}.png`;
+const flagUrl = (code: string) => `https://flagcdn.com/${code}.svg`;
 
 const rawTeams: Team[] = [
   { id: "mexico", name: "Mexico", code: "MEX", flag: "🇲🇽" },

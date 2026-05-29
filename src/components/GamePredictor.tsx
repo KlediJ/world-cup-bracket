@@ -8,6 +8,10 @@ import { teamsById } from "@/data/teams";
 
 type ResultPick = "home" | "draw" | "away";
 type GameStep = "entry" | "groups" | "tables" | "knockout" | "review";
+type PickFeedback = {
+  direction: "left" | "right" | "down";
+  text: string;
+};
 
 type GroupMatch = {
   id: string;
@@ -315,6 +319,8 @@ export function GamePredictor() {
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({});
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [pickFeedback, setPickFeedback] = useState<PickFeedback | null>(null);
+  const [isResolvingPick, setIsResolvingPick] = useState(false);
 
   const groupMatches = useMemo(() => createGroupMatches(), []);
   const groupTables = useMemo(() => calculateGroupTables(groupMatches, groupPicks), [groupMatches, groupPicks]);
@@ -327,62 +333,80 @@ export function GamePredictor() {
   const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
   const canStart = playerName.trim().length > 0 && hasValidEmail;
   const groupProgress = Object.keys(groupPicks).length;
-  const [lastPickText, setLastPickText] = useState("");
-
   function chooseGroupResult(result: ResultPick) {
-    if (!activeMatch) {
+    if (!activeMatch || isResolvingPick) {
       return;
     }
 
+    const currentMatch = activeMatch;
     const score = defaultScore(result);
     const winnerText =
       result === "draw"
-        ? `${getTeamName(activeMatch.homeTeamId)} ${score.homeScore}-${score.awayScore} ${getTeamName(activeMatch.awayTeamId)}`
+        ? `${getTeamName(currentMatch.homeTeamId)} ${score.homeScore}-${score.awayScore} ${getTeamName(currentMatch.awayTeamId)}`
         : result === "home"
-          ? `${getTeamName(activeMatch.homeTeamId)} wins`
-          : `${getTeamName(activeMatch.awayTeamId)} wins`;
+          ? `${getTeamName(currentMatch.homeTeamId)} wins`
+          : `${getTeamName(currentMatch.awayTeamId)} wins`;
+    const direction = result === "draw" ? "down" : result === "home" ? "right" : "left";
 
-    setLastPickText(winnerText);
-    setGroupPicks((current) => ({
-      ...current,
-      [activeMatch.id]: {
-        result,
-        ...score,
-      },
-    }));
+    setIsResolvingPick(true);
+    setPickFeedback({ direction, text: winnerText });
 
-    if (matchIndex < groupMatches.length - 1) {
-      setMatchIndex((current) => current + 1);
-    } else {
-      setStep("tables");
-    }
+    window.setTimeout(() => {
+      setGroupPicks((current) => ({
+        ...current,
+        [currentMatch.id]: {
+          result,
+          ...score,
+        },
+      }));
+
+      if (matchIndex < groupMatches.length - 1) {
+        setMatchIndex((current) => current + 1);
+      } else {
+        setStep("tables");
+      }
+
+      setPickFeedback(null);
+      setIsResolvingPick(false);
+    }, 360);
   }
 
   function chooseKnockoutWinner(teamId: string | undefined) {
-    if (!teamId || !activeKnockoutMatch) {
+    if (!teamId || !activeKnockoutMatch || isResolvingPick) {
       return;
     }
 
-    setLastPickText(`${getTeamName(teamId)} advances`);
-    setKnockoutPicks((current) => {
-      const next = { ...current };
+    const currentMatch = activeKnockoutMatch;
+    const currentRound = activeRound;
+    const direction = teamId === currentMatch.homeTeamId ? "right" : "left";
 
-      for (const matchId of getDownstreamMatches(activeKnockoutMatch.id)) {
-        delete next[matchId];
+    setIsResolvingPick(true);
+    setPickFeedback({ direction, text: `${getTeamName(teamId)} advances` });
+
+    window.setTimeout(() => {
+      setKnockoutPicks((current) => {
+        const next = { ...current };
+
+        for (const matchId of getDownstreamMatches(currentMatch.id)) {
+          delete next[matchId];
+        }
+
+        next[currentMatch.id] = teamId;
+        return next;
+      });
+
+      if (activeKnockoutIndex < currentRound.matches.length - 1) {
+        setActiveKnockoutIndex((current) => current + 1);
+      } else if (activeRoundIndex < knockoutRounds.length - 1) {
+        setActiveRoundIndex((current) => current + 1);
+        setActiveKnockoutIndex(0);
+      } else {
+        setStep("review");
       }
 
-      next[activeKnockoutMatch.id] = teamId;
-      return next;
-    });
-
-    if (activeKnockoutIndex < activeRound.matches.length - 1) {
-      setActiveKnockoutIndex((current) => current + 1);
-    } else if (activeRoundIndex < knockoutRounds.length - 1) {
-      setActiveRoundIndex((current) => current + 1);
-      setActiveKnockoutIndex(0);
-    } else {
-      setStep("review");
-    }
+      setPickFeedback(null);
+      setIsResolvingPick(false);
+    }, 360);
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>, mode: "group" | "knockout") {
@@ -496,14 +520,16 @@ export function GamePredictor() {
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
             <div className="h-full rounded-full bg-emerald-600" style={{ width: `${(groupProgress / groupMatches.length) * 100}%` }} />
           </div>
-          {lastPickText ? (
-            <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-black text-zinc-950">{lastPickText}</p>
-          ) : null}
           <div
-            className="mt-5 touch-none rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ring-4 ring-transparent transition active:ring-emerald-100"
+            className={`game-pick-card relative mt-5 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ring-4 ring-transparent transition active:ring-emerald-100 ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
             onPointerDown={(event) => setDragStart({ x: event.clientX, y: event.clientY })}
             onPointerUp={(event) => handlePointerUp(event, "group")}
           >
+            {pickFeedback ? (
+              <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-3xl font-black text-white">
+                {pickFeedback.text}
+              </div>
+            ) : null}
             <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-black uppercase tracking-wide">
               <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">Left wins</span>
               <span className="rounded-full bg-zinc-950 px-2 py-1 text-white">Draw</span>
@@ -516,9 +542,9 @@ export function GamePredictor() {
             </div>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <button type="button" onClick={() => chooseGroupResult("home")} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white">Home wins</button>
-            <button type="button" onClick={() => chooseGroupResult("draw")} className="min-h-12 rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black text-white">Draw</button>
-            <button type="button" onClick={() => chooseGroupResult("away")} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white">Away wins</button>
+            <button type="button" disabled={isResolvingPick} onClick={() => chooseGroupResult("home")} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">Home wins</button>
+            <button type="button" disabled={isResolvingPick} onClick={() => chooseGroupResult("draw")} className="min-h-12 rounded-lg bg-zinc-950 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">Draw</button>
+            <button type="button" disabled={isResolvingPick} onClick={() => chooseGroupResult("away")} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">Away wins</button>
           </div>
           <button type="button" onClick={goBackOneGroupMatch} disabled={matchIndex === 0} className="mt-3 min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-800 disabled:opacity-40">
             Back one match
@@ -595,12 +621,14 @@ export function GamePredictor() {
             </p>
           </div>
           <div
-            className="mt-5 touch-none rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm"
+            className={`game-pick-card relative mt-5 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
             onPointerDown={(event) => setDragStart({ x: event.clientX, y: event.clientY })}
             onPointerUp={(event) => handlePointerUp(event, "knockout")}
           >
-            {lastPickText ? (
-              <p className="mb-4 rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-black text-zinc-950">{lastPickText}</p>
+            {pickFeedback ? (
+              <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-3xl font-black text-white">
+                {pickFeedback.text}
+              </div>
             ) : null}
             <p className="text-center text-xs font-black uppercase tracking-wide text-zinc-500">Swipe toward the winner</p>
             <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
@@ -610,8 +638,8 @@ export function GamePredictor() {
             </div>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => chooseKnockoutWinner(activeKnockoutMatch.homeTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white">{getTeamName(activeKnockoutMatch.homeTeamId)}</button>
-            <button type="button" onClick={() => chooseKnockoutWinner(activeKnockoutMatch.awayTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white">{getTeamName(activeKnockoutMatch.awayTeamId)}</button>
+            <button type="button" disabled={isResolvingPick} onClick={() => chooseKnockoutWinner(activeKnockoutMatch.homeTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">{getTeamName(activeKnockoutMatch.homeTeamId)}</button>
+            <button type="button" disabled={isResolvingPick} onClick={() => chooseKnockoutWinner(activeKnockoutMatch.awayTeamId)} className="min-h-12 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-300">{getTeamName(activeKnockoutMatch.awayTeamId)}</button>
           </div>
         </section>
       ) : null}
