@@ -7,7 +7,7 @@ import { groups } from "@/data/groups";
 import { teamsById } from "@/data/teams";
 
 type ResultPick = "home" | "draw" | "away";
-type GameStep = "entry" | "groups" | "tables" | "knockout" | "review";
+type GameStep = "groups" | "tables" | "knockout" | "review";
 type PickFeedback = {
   direction: "left" | "right" | "down";
   text: string;
@@ -31,6 +31,9 @@ type GroupMatch = {
   groupName: string;
   homeTeamId: string;
   awayTeamId: string;
+  date: string;
+  time: string;
+  venue: string;
 };
 
 type GroupMatchPick = {
@@ -63,9 +66,42 @@ type KnockoutRound = {
   matches: KnockoutMatch[];
 };
 
-const stepOrder: GameStep[] = ["entry", "groups", "tables", "knockout", "review"];
 const groupAccentColors = ["#0f766e", "#1d4ed8", "#b45309", "#7c3aed", "#0e7490", "#be123c"];
 const PICK_ANIMATION_MS = 320;
+const SWIPE_THRESHOLD = 42;
+const groupStageVenues = [
+  "Estadio Azteca, Mexico City",
+  "BMO Field, Toronto",
+  "SoFi Stadium, Los Angeles",
+  "AT&T Stadium, Dallas",
+  "Hard Rock Stadium, Miami",
+  "Levi's Stadium, San Francisco",
+  "MetLife Stadium, New York New Jersey",
+  "Mercedes-Benz Stadium, Atlanta",
+  "NRG Stadium, Houston",
+  "Lumen Field, Seattle",
+  "Lincoln Financial Field, Philadelphia",
+  "BC Place, Vancouver",
+];
+const groupStageDates = [
+  "Jun 11, 2026",
+  "Jun 12, 2026",
+  "Jun 13, 2026",
+  "Jun 14, 2026",
+  "Jun 15, 2026",
+  "Jun 16, 2026",
+  "Jun 17, 2026",
+  "Jun 18, 2026",
+  "Jun 19, 2026",
+  "Jun 20, 2026",
+  "Jun 21, 2026",
+  "Jun 22, 2026",
+  "Jun 23, 2026",
+  "Jun 24, 2026",
+  "Jun 25, 2026",
+  "Jun 26, 2026",
+];
+const kickoffTimes = ["12:00 PM ET", "3:00 PM ET", "6:00 PM ET", "9:00 PM ET"];
 
 function getTeamName(teamId: string | undefined, fallback = "TBD") {
   return teamId ? teamsById.get(teamId)?.name ?? fallback : fallback;
@@ -101,7 +137,7 @@ function TeamFlag({ teamId, className = "h-16 w-24" }: { teamId?: string; classN
 }
 
 function createGroupMatches(): GroupMatch[] {
-  return groups.flatMap((group) => {
+  return groups.flatMap((group, groupIndex) => {
     const [a, b, c, d] = group.teamIds;
     const pairings = [
       [a, b],
@@ -112,13 +148,20 @@ function createGroupMatches(): GroupMatch[] {
       [b, c],
     ];
 
-    return pairings.map(([homeTeamId, awayTeamId], index) => ({
-      id: `${group.id}-${index + 1}`,
-      groupId: group.id,
-      groupName: group.name,
-      homeTeamId,
-      awayTeamId,
-    }));
+    return pairings.map(([homeTeamId, awayTeamId], index) => {
+      const matchNumber = groupIndex * pairings.length + index;
+
+      return {
+        id: `${group.id}-${index + 1}`,
+        groupId: group.id,
+        groupName: group.name,
+        homeTeamId,
+        awayTeamId,
+        date: groupStageDates[matchNumber % groupStageDates.length],
+        time: kickoffTimes[matchNumber % kickoffTimes.length],
+        venue: groupStageVenues[matchNumber % groupStageVenues.length],
+      };
+    });
   });
 }
 
@@ -356,7 +399,7 @@ function vibratePick() {
 export function GamePredictor() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [step, setStep] = useState<GameStep>("entry");
+  const [step, setStep] = useState<GameStep>("groups");
   const [playerName, setPlayerName] = useState("");
   const [playerEmail, setPlayerEmail] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
@@ -384,22 +427,22 @@ export function GamePredictor() {
   const activeKnockoutMatch = activeRound?.matches[activeKnockoutIndex];
   const champion = knockoutPicks["predict-champion"];
   const hasValidEmail = !playerEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(playerEmail.trim());
-  const canStart = playerName.trim().length > 0 && hasValidEmail;
+  const canSubmit = playerName.trim().length > 0 && hasValidEmail && Boolean(champion);
   const groupProgress = Object.keys(groupPicks).length;
   const currentGroupIndex = activeMatch ? groups.findIndex((group) => group.id === activeMatch.groupId) : 0;
   const groupAccent = groupAccentColors[Math.max(currentGroupIndex, 0) % groupAccentColors.length];
   const dragIntent =
-    dragOffset.y > 55 && Math.abs(dragOffset.y) > Math.abs(dragOffset.x)
+    dragOffset.y > SWIPE_THRESHOLD && Math.abs(dragOffset.y) > Math.abs(dragOffset.x)
       ? "down"
-      : dragOffset.x > 55
+      : dragOffset.x > SWIPE_THRESHOLD
         ? "right"
-        : dragOffset.x < -55
+        : dragOffset.x < -SWIPE_THRESHOLD
           ? "left"
           : null;
   const dragStyle =
     dragStart && !pickFeedback
       ? {
-          transform: `translate(${Math.max(Math.min(dragOffset.x, 80), -80)}px, ${Math.max(Math.min(dragOffset.y, 70), -20)}px) rotate(${Math.max(Math.min(dragOffset.x / 22, 5), -5)}deg)`,
+          transform: `translate(${Math.max(Math.min(dragOffset.x, 120), -120)}px, ${Math.max(Math.min(dragOffset.y, 110), -28)}px) rotate(${Math.max(Math.min(dragOffset.x / 18, 7), -7)}deg)`,
         }
       : undefined;
   const streakLabel = streak >= 20 ? "on fire" : streak >= 10 ? "hot streak" : streak >= 5 ? "streak" : "momentum";
@@ -513,16 +556,16 @@ export function GamePredictor() {
     setDragOffset({ x: 0, y: 0 });
 
     if (mode === "group") {
-      if (dy > 70 && Math.abs(dy) > Math.abs(dx)) {
+      if (dy > SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
         chooseGroupResult("draw");
-      } else if (dx > 70) {
+      } else if (dx > SWIPE_THRESHOLD) {
         chooseGroupResult("home");
-      } else if (dx < -70) {
+      } else if (dx < -SWIPE_THRESHOLD) {
         chooseGroupResult("away");
       }
-    } else if (dx > 70) {
+    } else if (dx > SWIPE_THRESHOLD) {
       chooseKnockoutWinner(activeKnockoutMatch?.homeTeamId);
-    } else if (dx < -70) {
+    } else if (dx < -SWIPE_THRESHOLD) {
       chooseKnockoutWinner(activeKnockoutMatch?.awayTeamId);
     }
   }
@@ -620,71 +663,38 @@ export function GamePredictor() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-        <div className="grid gap-3 p-4 sm:grid-cols-4">
-          <div className="rounded-xl bg-emerald-50 p-3">
-            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{streakLabel}</p>
-            <p className="mt-1 text-3xl font-black text-emerald-950">{streak}</p>
+    <div className="mx-auto max-w-4xl space-y-3">
+      <section className="sticky top-[73px] z-10 overflow-hidden rounded-2xl border border-zinc-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-black uppercase tracking-wide text-emerald-700">
+              {step === "groups" ? `${activeMatch?.groupName ?? "Groups"} · ${groupProgress}/72` : step}
+            </p>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: step === "groups" ? `${(groupProgress / groupMatches.length) * 100}%` : champion ? "100%" : "68%",
+                  backgroundColor: step === "groups" ? groupAccent : "#047857",
+                }}
+              />
+            </div>
           </div>
-          <div className="rounded-xl bg-zinc-50 p-3">
-            <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Best run</p>
-            <p className="mt-1 text-3xl font-black text-zinc-950">{maxStreak}</p>
-          </div>
-          <div className="rounded-xl bg-zinc-50 p-3">
-            <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Group picks</p>
-            <p className="mt-1 text-3xl font-black text-zinc-950">{groupProgress}/72</p>
+          <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center">
+            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">{streakLabel}</p>
+            <p className="text-lg font-black text-emerald-950">{streak}</p>
           </div>
           <button
             type="button"
             onClick={() => setSoundEnabled((current) => !current)}
-            className={`rounded-xl p-3 text-left transition ${soundEnabled ? "bg-amber-300 text-zinc-950" : "bg-zinc-950 text-white"}`}
+            className={`rounded-lg px-3 py-2 text-xs font-black transition ${soundEnabled ? "bg-amber-300 text-zinc-950" : "bg-zinc-950 text-white"}`}
           >
-            <span className="block text-xs font-black uppercase tracking-wide opacity-80">Sound</span>
-            <span className="mt-1 block text-2xl font-black">{soundEnabled ? "On" : "Off"}</span>
+            {soundEnabled ? "Sound On" : "Sound Off"}
           </button>
         </div>
       </section>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-        <div className="grid gap-2 sm:grid-cols-5">
-          {stepOrder.map((item, index) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setStep(item)}
-              disabled={index > stepOrder.indexOf(step)}
-              className={`rounded-xl px-3 py-3 text-xs font-black uppercase tracking-wide transition ${
-                item === step ? "bg-emerald-700 text-white" : "bg-zinc-100 text-zinc-500 disabled:opacity-40"
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {statusMessage ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-900">{statusMessage}</div> : null}
-
-      {step === "entry" ? (
-        <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Game mode</p>
-          <h2 className="mt-2 text-3xl font-black text-zinc-950">Swipe through the tournament</h2>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-black text-zinc-700">
-              Name
-              <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
-            </label>
-            <label className="text-sm font-black text-zinc-700">
-              Email <span className="text-zinc-500">(optional)</span>
-              <input value={playerEmail} onChange={(event) => setPlayerEmail(event.target.value)} className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
-            </label>
-          </div>
-          <button type="button" disabled={!canStart} onClick={() => setStep("groups")} className="mt-5 min-h-12 w-full rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white disabled:bg-zinc-300">
-            Start Swiping
-          </button>
-        </section>
-      ) : null}
 
       {step === "groups" && checkpointGroupIndex !== null ? (
         <section className="relative overflow-hidden rounded-3xl border border-emerald-900/20 bg-zinc-950 p-5 text-white shadow-sm sm:p-8">
@@ -728,17 +738,17 @@ export function GamePredictor() {
               {groupProgress}/{groupMatches.length}
             </p>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100">
-            <div className="h-full rounded-full transition-all" style={{ width: `${(groupProgress / groupMatches.length) * 100}%`, backgroundColor: groupAccent }} />
+          <div className="mt-3 grid gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-sm font-black text-zinc-700 sm:grid-cols-2">
+            <span>{activeMatch.date} · {activeMatch.time}</span>
+            <span className="min-w-0 truncate sm:text-right">{activeMatch.venue}</span>
           </div>
           <div
-            className={`game-pick-card relative mt-5 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ring-4 ring-transparent transition active:ring-emerald-100 ${dragIntent ? `is-dragging-${dragIntent}` : ""} ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
+            className={`game-pick-card relative mt-3 touch-none overflow-hidden rounded-3xl border border-zinc-200 bg-[#fbfaf3] p-5 shadow-sm ring-4 ring-transparent transition active:ring-emerald-100 ${dragIntent ? `is-dragging-${dragIntent}` : ""} ${pickFeedback ? `is-picking-${pickFeedback.direction}` : ""}`}
             style={dragStyle}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={(event) => handlePointerUp(event, "group")}
             onPointerCancel={cancelDrag}
-            onPointerLeave={cancelDrag}
           >
             {pickFeedback ? (
               <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-3xl font-black text-white">
@@ -759,7 +769,7 @@ export function GamePredictor() {
                     : `${getTeamName(activeMatch.awayTeamId)} wins`}
               </div>
             ) : null}
-            <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+            <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
               <TeamFace teamId={activeMatch.homeTeamId} />
               <span className="grid size-14 place-items-center rounded-full bg-zinc-950 text-lg font-black text-white">VS</span>
               <TeamFace teamId={activeMatch.awayTeamId} align="right" />
@@ -856,7 +866,6 @@ export function GamePredictor() {
             onPointerMove={handlePointerMove}
             onPointerUp={(event) => handlePointerUp(event, "knockout")}
             onPointerCancel={cancelDrag}
-            onPointerLeave={cancelDrag}
           >
             {pickFeedback ? (
               <div className="absolute inset-0 z-10 grid place-items-center bg-emerald-700/90 px-6 text-center text-3xl font-black text-white">
@@ -904,9 +913,36 @@ export function GamePredictor() {
                 </div>
               </div>
             </div>
-          <button type="button" disabled={!champion || isPending} onClick={submitGamePrediction} className="mt-5 min-h-12 w-full rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white disabled:bg-zinc-300">
-            {isPending ? "Submitting..." : "Submit Locked Prediction"}
-          </button>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-black text-zinc-700">
+                Name
+                <input
+                  value={playerName}
+                  onChange={(event) => setPlayerName(event.target.value)}
+                  placeholder="Example: Alex"
+                  className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                />
+              </label>
+              <label className="text-sm font-black text-zinc-700">
+                Email <span className="text-zinc-500">(optional)</span>
+                <input
+                  value={playerEmail}
+                  type="email"
+                  onChange={(event) => setPlayerEmail(event.target.value)}
+                  placeholder="alex@example.com"
+                  className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-4 text-lg font-bold text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                />
+              </label>
+            </div>
+            {!playerName.trim() ? (
+              <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-black text-zinc-950">Add your name to submit.</p>
+            ) : null}
+            {playerEmail.trim() && !hasValidEmail ? (
+              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-black text-red-700">Enter a valid email or leave it blank.</p>
+            ) : null}
+            <button type="button" disabled={!canSubmit || isPending} onClick={submitGamePrediction} className="mt-5 min-h-12 w-full rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white disabled:bg-zinc-300">
+              {isPending ? "Submitting..." : "Submit Locked Prediction"}
+            </button>
           </div>
         </section>
       ) : null}
