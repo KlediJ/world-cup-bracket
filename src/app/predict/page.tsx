@@ -1,4 +1,5 @@
 import { MatchPredictor } from "@/components/MatchPredictor";
+import { ButtonLink } from "@/components/ButtonLink";
 import { homeAssets } from "@/data/homeAssets";
 
 export default function PredictPage() {
@@ -15,6 +16,12 @@ export default function PredictPage() {
             <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-emerald-50">
               Pick every group match, let the tables decide the Round of 32, then push your winners through to the final.
             </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <ButtonLink href="/predict/play">Quick Game Mode</ButtonLink>
+              <ButtonLink href="#detailed-predictor" variant="secondary">
+                Detailed Predictor
+              </ButtonLink>
+            </div>
           </div>
           <div
             className="relative mx-auto size-36 rounded-[2rem] border border-amber-200/70 bg-amber-300 bg-contain bg-center bg-no-repeat shadow-xl shadow-emerald-950/30 lg:mx-0 lg:justify-self-end"
@@ -27,7 +34,9 @@ export default function PredictPage() {
           </div>
         </div>
       </section>
-      <MatchPredictor />
+      <div id="detailed-predictor">
+        <MatchPredictor />
+      </div>
     </div>
   );
 }
