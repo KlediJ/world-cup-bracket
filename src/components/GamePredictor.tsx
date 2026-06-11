@@ -85,39 +85,80 @@ const groupAccentColors = ["#0f766e", "#1d4ed8", "#b45309", "#7c3aed", "#0e7490"
 const PICK_ANIMATION_MS = 320;
 const SWIPE_THRESHOLD = 42;
 const DRAFT_STORAGE_KEY = "world-cup-bracket-predictor-draft-v1";
-const groupStageVenues = [
-  "Estadio Azteca, Mexico City",
-  "BMO Field, Toronto",
-  "SoFi Stadium, Los Angeles",
-  "AT&T Stadium, Dallas",
-  "Hard Rock Stadium, Miami",
-  "Levi's Stadium, San Francisco",
-  "MetLife Stadium, New York New Jersey",
-  "Mercedes-Benz Stadium, Atlanta",
-  "NRG Stadium, Houston",
-  "Lumen Field, Seattle",
-  "Lincoln Financial Field, Philadelphia",
-  "BC Place, Vancouver",
-];
-const groupStageDates = [
-  "Jun 11, 2026",
-  "Jun 12, 2026",
-  "Jun 13, 2026",
-  "Jun 14, 2026",
-  "Jun 15, 2026",
-  "Jun 16, 2026",
-  "Jun 17, 2026",
-  "Jun 18, 2026",
-  "Jun 19, 2026",
-  "Jun 20, 2026",
-  "Jun 21, 2026",
-  "Jun 22, 2026",
-  "Jun 23, 2026",
-  "Jun 24, 2026",
-  "Jun 25, 2026",
-  "Jun 26, 2026",
-];
-const kickoffTimes = ["12:00 PM ET", "3:00 PM ET", "6:00 PM ET", "9:00 PM ET"];
+const groupMatchSchedule: Record<string, Pick<GroupMatch, "date" | "time" | "venue">> = {
+  "a-1": { date: "Jun 11, 2026", time: "3:00 PM ET", venue: "Mexico City Stadium" },
+  "a-2": { date: "Jun 11, 2026", time: "10:00 PM ET", venue: "Guadalajara Stadium" },
+  "a-3": { date: "Jun 18, 2026", time: "9:00 PM ET", venue: "Guadalajara Stadium" },
+  "a-4": { date: "Jun 18, 2026", time: "12:00 PM ET", venue: "Atlanta Stadium" },
+  "a-5": { date: "Jun 24, 2026", time: "9:00 PM ET", venue: "Mexico City Stadium" },
+  "a-6": { date: "Jun 24, 2026", time: "9:00 PM ET", venue: "Monterrey Stadium" },
+  "b-1": { date: "Jun 24, 2026", time: "3:00 PM ET", venue: "BC Place Vancouver" },
+  "b-2": { date: "Jun 24, 2026", time: "3:00 PM ET", venue: "Seattle Stadium" },
+  "b-3": { date: "Jun 18, 2026", time: "6:00 PM ET", venue: "BC Place Vancouver" },
+  "b-4": { date: "Jun 18, 2026", time: "3:00 PM ET", venue: "Los Angeles Stadium" },
+  "b-5": { date: "Jun 12, 2026", time: "3:00 PM ET", venue: "Toronto Stadium" },
+  "b-6": { date: "Jun 13, 2026", time: "3:00 PM ET", venue: "San Francisco Bay Area Stadium" },
+  "c-1": { date: "Jun 13, 2026", time: "6:00 PM ET", venue: "New York New Jersey Stadium" },
+  "c-2": { date: "Jun 13, 2026", time: "9:00 PM ET", venue: "Boston Stadium" },
+  "c-3": { date: "Jun 19, 2026", time: "8:30 PM ET", venue: "Philadelphia Stadium" },
+  "c-4": { date: "Jun 19, 2026", time: "6:00 PM ET", venue: "Boston Stadium" },
+  "c-5": { date: "Jun 24, 2026", time: "6:00 PM ET", venue: "Miami Stadium" },
+  "c-6": { date: "Jun 24, 2026", time: "6:00 PM ET", venue: "Atlanta Stadium" },
+  "d-1": { date: "Jun 12, 2026", time: "9:00 PM ET", venue: "Los Angeles Stadium" },
+  "d-2": { date: "Jun 14, 2026", time: "12:00 AM ET", venue: "BC Place Vancouver" },
+  "d-3": { date: "Jun 19, 2026", time: "3:00 PM ET", venue: "Seattle Stadium" },
+  "d-4": { date: "Jun 19, 2026", time: "11:00 PM ET", venue: "San Francisco Bay Area Stadium" },
+  "d-5": { date: "Jun 25, 2026", time: "10:00 PM ET", venue: "Los Angeles Stadium" },
+  "d-6": { date: "Jun 25, 2026", time: "10:00 PM ET", venue: "San Francisco Bay Area Stadium" },
+  "e-1": { date: "Jun 14, 2026", time: "1:00 PM ET", venue: "Houston Stadium" },
+  "e-2": { date: "Jun 14, 2026", time: "7:00 PM ET", venue: "Philadelphia Stadium" },
+  "e-3": { date: "Jun 20, 2026", time: "4:00 PM ET", venue: "Toronto Stadium" },
+  "e-4": { date: "Jun 20, 2026", time: "8:00 PM ET", venue: "Kansas City Stadium" },
+  "e-5": { date: "Jun 25, 2026", time: "4:00 PM ET", venue: "New York New Jersey Stadium" },
+  "e-6": { date: "Jun 25, 2026", time: "4:00 PM ET", venue: "Philadelphia Stadium" },
+  "f-1": { date: "Jun 14, 2026", time: "4:00 PM ET", venue: "Dallas Stadium" },
+  "f-2": { date: "Jun 14, 2026", time: "10:00 PM ET", venue: "Monterrey Stadium" },
+  "f-3": { date: "Jun 25, 2026", time: "7:00 PM ET", venue: "Kansas City Stadium" },
+  "f-4": { date: "Jun 25, 2026", time: "7:00 PM ET", venue: "Dallas Stadium" },
+  "f-5": { date: "Jun 20, 2026", time: "1:00 PM ET", venue: "Houston Stadium" },
+  "f-6": { date: "Jun 21, 2026", time: "12:00 AM ET", venue: "Monterrey Stadium" },
+  "g-1": { date: "Jun 15, 2026", time: "3:00 PM ET", venue: "Seattle Stadium" },
+  "g-2": { date: "Jun 15, 2026", time: "9:00 PM ET", venue: "Los Angeles Stadium" },
+  "g-3": { date: "Jun 21, 2026", time: "3:00 PM ET", venue: "Los Angeles Stadium" },
+  "g-4": { date: "Jun 21, 2026", time: "9:00 PM ET", venue: "BC Place Vancouver" },
+  "g-5": { date: "Jun 26, 2026", time: "11:00 PM ET", venue: "BC Place Vancouver" },
+  "g-6": { date: "Jun 26, 2026", time: "11:00 PM ET", venue: "Seattle Stadium" },
+  "h-1": { date: "Jun 15, 2026", time: "12:00 PM ET", venue: "Atlanta Stadium" },
+  "h-2": { date: "Jun 15, 2026", time: "6:00 PM ET", venue: "Miami Stadium" },
+  "h-3": { date: "Jun 21, 2026", time: "12:00 PM ET", venue: "Atlanta Stadium" },
+  "h-4": { date: "Jun 21, 2026", time: "6:00 PM ET", venue: "Miami Stadium" },
+  "h-5": { date: "Jun 26, 2026", time: "8:00 PM ET", venue: "Guadalajara Stadium" },
+  "h-6": { date: "Jun 26, 2026", time: "8:00 PM ET", venue: "Houston Stadium" },
+  "i-1": { date: "Jun 16, 2026", time: "3:00 PM ET", venue: "New York New Jersey Stadium" },
+  "i-2": { date: "Jun 16, 2026", time: "6:00 PM ET", venue: "Boston Stadium" },
+  "i-3": { date: "Jun 22, 2026", time: "8:00 PM ET", venue: "New York New Jersey Stadium" },
+  "i-4": { date: "Jun 26, 2026", time: "3:00 PM ET", venue: "Toronto Stadium" },
+  "i-5": { date: "Jun 22, 2026", time: "5:00 PM ET", venue: "Philadelphia Stadium" },
+  "i-6": { date: "Jun 26, 2026", time: "3:00 PM ET", venue: "Boston Stadium" },
+  "j-1": { date: "Jun 16, 2026", time: "9:00 PM ET", venue: "Kansas City Stadium" },
+  "j-2": { date: "Jun 17, 2026", time: "12:00 AM ET", venue: "San Francisco Bay Area Stadium" },
+  "j-3": { date: "Jun 22, 2026", time: "1:00 PM ET", venue: "Dallas Stadium" },
+  "j-4": { date: "Jun 22, 2026", time: "11:00 PM ET", venue: "San Francisco Bay Area Stadium" },
+  "j-5": { date: "Jun 27, 2026", time: "10:00 PM ET", venue: "Dallas Stadium" },
+  "j-6": { date: "Jun 27, 2026", time: "10:00 PM ET", venue: "Kansas City Stadium" },
+  "k-1": { date: "Jun 23, 2026", time: "1:00 PM ET", venue: "Houston Stadium" },
+  "k-2": { date: "Jun 23, 2026", time: "10:00 PM ET", venue: "Guadalajara Stadium" },
+  "k-3": { date: "Jun 27, 2026", time: "7:30 PM ET", venue: "Miami Stadium" },
+  "k-4": { date: "Jun 27, 2026", time: "7:30 PM ET", venue: "Atlanta Stadium" },
+  "k-5": { date: "Jun 17, 2026", time: "1:00 PM ET", venue: "Houston Stadium" },
+  "k-6": { date: "Jun 17, 2026", time: "10:00 PM ET", venue: "Mexico City Stadium" },
+  "l-1": { date: "Jun 17, 2026", time: "4:00 PM ET", venue: "Dallas Stadium" },
+  "l-2": { date: "Jun 17, 2026", time: "7:00 PM ET", venue: "Toronto Stadium" },
+  "l-3": { date: "Jun 23, 2026", time: "4:00 PM ET", venue: "Boston Stadium" },
+  "l-4": { date: "Jun 23, 2026", time: "7:00 PM ET", venue: "Toronto Stadium" },
+  "l-5": { date: "Jun 27, 2026", time: "5:00 PM ET", venue: "New York New Jersey Stadium" },
+  "l-6": { date: "Jun 27, 2026", time: "5:00 PM ET", venue: "Philadelphia Stadium" },
+};
 
 function getTeamName(teamId: string | undefined, fallback = "TBD") {
   return teamId ? teamsById.get(teamId)?.name ?? fallback : fallback;
@@ -153,7 +194,7 @@ function TeamFlag({ teamId, className = "h-16 w-24" }: { teamId?: string; classN
 }
 
 function createGroupMatches(): GroupMatch[] {
-  return groups.flatMap((group, groupIndex) => {
+  return groups.flatMap((group) => {
     const [a, b, c, d] = group.teamIds;
     const pairings = [
       [a, b],
@@ -165,17 +206,18 @@ function createGroupMatches(): GroupMatch[] {
     ];
 
     return pairings.map(([homeTeamId, awayTeamId], index) => {
-      const matchNumber = groupIndex * pairings.length + index;
+      const id = `${group.id}-${index + 1}`;
+      const schedule = groupMatchSchedule[id];
 
       return {
-        id: `${group.id}-${index + 1}`,
+        id,
         groupId: group.id,
         groupName: group.name,
         homeTeamId,
         awayTeamId,
-        date: groupStageDates[matchNumber % groupStageDates.length],
-        time: kickoffTimes[matchNumber % kickoffTimes.length],
-        venue: groupStageVenues[matchNumber % groupStageVenues.length],
+        date: schedule.date,
+        time: schedule.time,
+        venue: schedule.venue,
       };
     });
   });
