@@ -2,6 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { groups } from "@/data/groups";
 import { teamsById } from "@/data/teams";
 import { getDb } from "@/db/client";
 import { ensureDefaultPool } from "@/db/queries";
@@ -27,7 +28,32 @@ export type SubmitPredictionResult = {
   bracketId?: string;
 };
 
+const REQUIRED_GROUP_PICK_COUNT = groups.length * 6;
+const REQUIRED_KNOCKOUT_PICK_COUNT = 31;
+
+function getPredictionDeadline() {
+  const deadline = process.env.PREDICTION_DEADLINE;
+
+  if (!deadline) {
+    return null;
+  }
+
+  const parsedDeadline = new Date(deadline);
+
+  if (Number.isNaN(parsedDeadline.getTime())) {
+    return null;
+  }
+
+  return parsedDeadline;
+}
+
 function validatePrediction(input: SubmitPredictionInput) {
+  const deadline = getPredictionDeadline();
+
+  if (deadline && Date.now() > deadline.getTime()) {
+    return "Submissions are closed for this pool.";
+  }
+
   if (!input.playerName.trim()) {
     return "Enter a player name.";
   }
@@ -40,6 +66,14 @@ function validatePrediction(input: SubmitPredictionInput) {
 
   if (!input.knockoutPicks["predict-champion"] || !teamsById.has(input.knockoutPicks["predict-champion"])) {
     return "Pick a champion.";
+  }
+
+  if (Object.keys(input.groupMatchPicks).length !== REQUIRED_GROUP_PICK_COUNT) {
+    return "Complete every group-stage pick before submitting.";
+  }
+
+  if (Object.keys(input.knockoutPicks).filter((matchId) => input.knockoutPicks[matchId]).length !== REQUIRED_KNOCKOUT_PICK_COUNT) {
+    return "Complete every knockout pick before submitting.";
   }
 
   return null;

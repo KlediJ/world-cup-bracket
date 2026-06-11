@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ShareSubmissionControls } from "@/components/ShareSubmissionControls";
 import { groups } from "@/data/groups";
 import { homeAssets } from "@/data/homeAssets";
 import { teamsById } from "@/data/teams";
@@ -318,6 +319,7 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
           <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">
             Keep this link handy to reopen the bracket later.
           </p>
+          <ShareSubmissionControls playerName={submission.playerName} championName={getTeamName(champion)} />
         </div>
       </section>
 

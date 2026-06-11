@@ -35,7 +35,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-3 text-lg font-bold text-zinc-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               />
             </label>
-            {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-black text-red-700">Wrong password.</p> : null}
+            {error === "config" ? (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-black text-red-700">Admin password is not configured.</p>
+            ) : null}
+            {error && error !== "config" ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-black text-red-700">Wrong password.</p> : null}
             <button type="submit" className="min-h-11 w-full rounded-md bg-zinc-950 px-5 py-3 text-sm font-black text-white">
               Enter Admin
             </button>

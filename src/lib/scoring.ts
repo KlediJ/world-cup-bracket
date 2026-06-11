@@ -10,7 +10,6 @@ export const scoringRules = [
   { label: "Correct quarterfinal winner", points: 6 },
   { label: "Correct semifinal winner", points: 8 },
   { label: "Correct champion", points: 12 },
-  { label: "Exact knockout score bonus", points: 2 },
 ];
 
 export const maxSampleScore = scoringRules.reduce((total, rule) => total + rule.points, 0);
@@ -25,7 +24,6 @@ export const scoringValues = {
   quarterfinalWinner: 6,
   semifinalWinner: 8,
   champion: 12,
-  exactScoreBonus: 2,
 };
 
 export type BracketScoreInput = {
@@ -66,15 +64,6 @@ function getWinnerPoints(matchId: string) {
   return 0;
 }
 
-function isExactScore(pick?: ScorePick, result?: ScorePick) {
-  return (
-    pick?.teamAScore !== null &&
-    pick?.teamBScore !== null &&
-    pick?.teamAScore === result?.teamAScore &&
-    pick?.teamBScore === result?.teamBScore
-  );
-}
-
 export function calculateBracketScore(input: BracketScoreInput, results: BracketResults) {
   let total = 0;
 
@@ -112,10 +101,6 @@ export function calculateBracketScore(input: BracketScoreInput, results: Bracket
     }
 
     total += getWinnerPoints(matchId);
-
-    if (isExactScore(input.knockoutScores[matchId], results.knockoutScores[matchId])) {
-      total += scoringValues.exactScoreBonus;
-    }
   }
 
   return total;

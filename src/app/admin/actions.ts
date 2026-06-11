@@ -7,8 +7,11 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
 import { brackets, players } from "@/db/schema";
 
-const ADMIN_PASSWORD = "adminiscooking";
 const ADMIN_COOKIE = "wc_admin";
+
+function getAdminPassword() {
+  return process.env.ADMIN_PASSWORD?.trim() ?? "";
+}
 
 export async function isAdminAuthenticated() {
   const cookieStore = await cookies();
@@ -17,8 +20,13 @@ export async function isAdminAuthenticated() {
 
 export async function loginAdmin(formData: FormData) {
   const password = String(formData.get("password") ?? "");
+  const adminPassword = getAdminPassword();
 
-  if (password !== ADMIN_PASSWORD) {
+  if (!adminPassword) {
+    redirect("/admin?error=config");
+  }
+
+  if (password !== adminPassword) {
     redirect("/admin?error=1");
   }
 

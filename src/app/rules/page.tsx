@@ -2,8 +2,7 @@ import Link from "next/link";
 import { scoringRules, scoringValues } from "@/lib/scoring";
 
 const groupRules = scoringRules.slice(0, 4);
-const knockoutRules = scoringRules.slice(4, 9);
-const bonusRule = scoringRules[9];
+const knockoutRules = scoringRules.slice(4);
 
 export default function RulesPage() {
   return (
@@ -26,7 +25,7 @@ export default function RulesPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Group stage</p>
           <h2 className="mt-2 text-3xl font-black text-zinc-950">Build the field</h2>
@@ -59,17 +58,6 @@ export default function RulesPage() {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-amber-700">Bonus</p>
-          <h2 className="mt-2 text-3xl font-black text-zinc-950">Exact scores pay extra</h2>
-          <p className="mt-3 text-sm font-semibold leading-6 text-zinc-700">
-            Winner picks are the main game. Exact knockout scores are the edge case that can separate tied brackets.
-          </p>
-          <div className="mt-5 rounded-2xl bg-white p-4">
-            <p className="text-sm font-black text-zinc-700">{bonusRule.label}</p>
-            <p className="mt-2 text-5xl font-black text-zinc-950">+{bonusRule.points}</p>
-          </div>
-        </article>
       </section>
 
       <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">

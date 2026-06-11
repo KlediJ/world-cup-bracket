@@ -119,8 +119,8 @@ export const bracketImpacts = [
     body: "Third place is not a dead end. Goal difference and total points can decide who reaches the Round of 32.",
   },
   {
-    title: "Every group score can move the bracket",
-    body: "In the match predictor, optional exact scores affect calculated tables and the knockout path.",
+    title: "Every group result can move the bracket",
+    body: "In the match predictor, wins, draws, and losses shape the calculated tables and knockout path.",
   },
   {
     title: "One early upset can reshape everything",

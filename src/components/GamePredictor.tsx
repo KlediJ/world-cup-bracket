@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, type PointerEvent } from "react";
+import { useEffect, useMemo, useState, useTransition, type PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import { submitPrediction } from "@/app/predict/actions";
 import { groups } from "@/data/groups";
@@ -67,10 +67,24 @@ type KnockoutRound = {
   matches: KnockoutMatch[];
 };
 type GroupTables = ReturnType<typeof calculateGroupTables>;
+type PredictorDraft = {
+  step: GameStep;
+  playerName: string;
+  playerEmail: string;
+  matchIndex: number;
+  activeRoundIndex: number;
+  activeKnockoutIndex: number;
+  groupPicks: Record<string, GroupMatchPick>;
+  knockoutPicks: Record<string, string>;
+  pickHistory: PickHistoryItem[];
+  streak: number;
+  maxStreak: number;
+};
 
 const groupAccentColors = ["#0f766e", "#1d4ed8", "#b45309", "#7c3aed", "#0e7490", "#be123c"];
 const PICK_ANIMATION_MS = 320;
 const SWIPE_THRESHOLD = 42;
+const DRAFT_STORAGE_KEY = "world-cup-bracket-predictor-draft-v1";
 const groupStageVenues = [
   "Estadio Azteca, Mexico City",
   "BMO Field, Toronto",
@@ -440,6 +454,7 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
   const [pickHistory, setPickHistory] = useState<PickHistoryItem[]>([]);
   const [streak, setStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
+  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   const groupMatches = useMemo(() => createGroupMatches(), []);
   const groupTables = useMemo(() => calculateGroupTables(groupMatches, groupPicks), [groupMatches, groupPicks]);
@@ -479,6 +494,78 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
         }
       : undefined;
   const streakLabel = streak >= 20 ? "on fire" : streak >= 10 ? "hot streak" : streak >= 5 ? "streak" : "momentum";
+
+  useEffect(() => {
+    const restoreTimer = window.setTimeout(() => {
+      try {
+        const rawDraft = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+
+        if (!rawDraft) {
+          setHasLoadedDraft(true);
+          return;
+        }
+
+        const draft = JSON.parse(rawDraft) as Partial<PredictorDraft>;
+
+        if (draft.step === "groups" || draft.step === "tables" || draft.step === "knockout" || draft.step === "review") {
+          setStep(draft.step);
+        }
+
+        setPlayerName(typeof draft.playerName === "string" ? draft.playerName : "");
+        setPlayerEmail(typeof draft.playerEmail === "string" ? draft.playerEmail : "");
+        setMatchIndex(typeof draft.matchIndex === "number" ? Math.min(Math.max(draft.matchIndex, 0), groupMatches.length - 1) : 0);
+        setActiveRoundIndex(typeof draft.activeRoundIndex === "number" ? Math.min(Math.max(draft.activeRoundIndex, 0), knockoutRounds.length - 1) : 0);
+        setActiveKnockoutIndex(typeof draft.activeKnockoutIndex === "number" ? Math.max(draft.activeKnockoutIndex, 0) : 0);
+        setGroupPicks(draft.groupPicks && typeof draft.groupPicks === "object" ? draft.groupPicks : {});
+        setKnockoutPicks(draft.knockoutPicks && typeof draft.knockoutPicks === "object" ? draft.knockoutPicks : {});
+        setPickHistory(Array.isArray(draft.pickHistory) ? draft.pickHistory : []);
+        setStreak(typeof draft.streak === "number" ? Math.max(draft.streak, 0) : 0);
+        setMaxStreak(typeof draft.maxStreak === "number" ? Math.max(draft.maxStreak, 0) : 0);
+        setStatusMessage("Draft restored.");
+      } catch {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } finally {
+        setHasLoadedDraft(true);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
+  }, [groupMatches.length, knockoutRounds.length]);
+
+  useEffect(() => {
+    if (!hasLoadedDraft) {
+      return;
+    }
+
+    const draft: PredictorDraft = {
+      step,
+      playerName,
+      playerEmail,
+      matchIndex,
+      activeRoundIndex,
+      activeKnockoutIndex,
+      groupPicks,
+      knockoutPicks,
+      pickHistory,
+      streak,
+      maxStreak,
+    };
+
+    window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  }, [
+    activeKnockoutIndex,
+    activeRoundIndex,
+    groupPicks,
+    hasLoadedDraft,
+    knockoutPicks,
+    matchIndex,
+    maxStreak,
+    pickHistory,
+    playerEmail,
+    playerName,
+    step,
+    streak,
+  ]);
 
   function triggerFeedback(feedback: PickFeedback) {
     setIsResolvingPick(true);
@@ -677,6 +764,11 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
     setCheckpointGroupIndex(null);
   }
 
+  function clearSavedDraft() {
+    window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setStatusMessage("Saved draft cleared.");
+  }
+
   function submitGamePrediction() {
     startTransition(async () => {
       const result = await submitPrediction({
@@ -690,6 +782,7 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
       setStatusMessage(result.message);
 
       if (result.ok && result.bracketId) {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
         router.push(`/submission/${result.bracketId}`);
       }
     });
@@ -1010,6 +1103,9 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
             ) : null}
             <button type="button" disabled={!canSubmit || isPending} onClick={submitGamePrediction} className="mt-5 min-h-12 w-full rounded-lg bg-emerald-700 px-5 py-3 text-sm font-black text-white disabled:bg-zinc-300">
               {isPending ? "Submitting..." : "Submit Locked Prediction"}
+            </button>
+            <button type="button" onClick={clearSavedDraft} className="mt-3 min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-800 hover:border-zinc-500">
+              Clear Saved Draft
             </button>
           </div>
         </section>
