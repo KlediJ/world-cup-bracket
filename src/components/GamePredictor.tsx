@@ -595,7 +595,7 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
         : result === "home"
           ? `${getTeamName(currentMatch.homeTeamId)} wins`
           : `${getTeamName(currentMatch.awayTeamId)} wins`;
-    const direction = result === "draw" ? "down" : result === "home" ? "right" : "left";
+    const direction = result === "draw" ? "down" : result === "home" ? "left" : "right";
 
     triggerFeedback({ direction, text: winnerText });
 
@@ -633,7 +633,7 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
 
     const currentMatch = activeKnockoutMatch;
     const currentRound = activeRound;
-    const direction = teamId === currentMatch.homeTeamId ? "right" : "left";
+    const direction = teamId === currentMatch.homeTeamId ? "left" : "right";
 
     triggerFeedback({ direction, text: `${getTeamName(teamId)} advances` });
 
@@ -679,14 +679,14 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
       if (dy > SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
         chooseGroupResult("draw");
       } else if (dx > SWIPE_THRESHOLD) {
-        chooseGroupResult("home");
-      } else if (dx < -SWIPE_THRESHOLD) {
         chooseGroupResult("away");
+      } else if (dx < -SWIPE_THRESHOLD) {
+        chooseGroupResult("home");
       }
     } else if (dx > SWIPE_THRESHOLD) {
-      chooseKnockoutWinner(activeKnockoutMatch?.homeTeamId);
-    } else if (dx < -SWIPE_THRESHOLD) {
       chooseKnockoutWinner(activeKnockoutMatch?.awayTeamId);
+    } else if (dx < -SWIPE_THRESHOLD) {
+      chooseKnockoutWinner(activeKnockoutMatch?.homeTeamId);
     }
   }
 
@@ -885,8 +885,8 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
                 {dragIntent === "down"
                   ? "Locking in a draw"
                   : dragIntent === "right"
-                    ? `${getTeamName(activeMatch.homeTeamId)} wins`
-                    : `${getTeamName(activeMatch.awayTeamId)} wins`}
+                    ? `${getTeamName(activeMatch.awayTeamId)} wins`
+                    : `${getTeamName(activeMatch.homeTeamId)} wins`}
               </div>
             ) : null}
             <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
@@ -992,7 +992,7 @@ export function GamePredictor({ championPickCounts }: { championPickCounts: Cham
             <p className="text-center text-xs font-black uppercase tracking-wide text-zinc-500">Swipe toward the winner</p>
             {dragIntent && dragIntent !== "down" ? (
               <div className="mt-4 rounded-xl bg-white px-4 py-3 text-center text-lg font-black text-zinc-950 shadow-sm">
-                {dragIntent === "right" ? `${getTeamName(activeKnockoutMatch.homeTeamId)} advances` : `${getTeamName(activeKnockoutMatch.awayTeamId)} advances`}
+                {dragIntent === "right" ? `${getTeamName(activeKnockoutMatch.awayTeamId)} advances` : `${getTeamName(activeKnockoutMatch.homeTeamId)} advances`}
               </div>
             ) : null}
             <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
