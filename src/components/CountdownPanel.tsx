@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const kickoffDate = new Date("2026-06-11T20:00:00-04:00");
+const kickoffDate = new Date("2026-06-11T15:00:00-04:00");
 
 function getTimeParts(now: number) {
   const remaining = Math.max(0, kickoffDate.getTime() - now);

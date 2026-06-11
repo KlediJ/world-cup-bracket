@@ -131,7 +131,7 @@ export const bracketImpacts = [
 export const tournamentCountdownTargets = [
   {
     label: "Opening match",
-    date: "2026-06-11T00:00:00-05:00",
+    date: "2026-06-11T15:00:00-04:00",
   },
   {
     label: "Final",
