@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ShareSubmissionControls } from "@/components/ShareSubmissionControls";
+import { SubmissionViewSwitcher } from "@/components/SubmissionViewSwitcher";
 import { groups } from "@/data/groups";
 import { homeAssets } from "@/data/homeAssets";
 import { teamsById } from "@/data/teams";
@@ -29,6 +30,11 @@ type ReadonlyRound = {
   title: string;
   shortTitle: string;
   matches: ReadonlyMatch[];
+};
+
+type ThirdPlaceEntry = {
+  group: Group;
+  row: TableRow;
 };
 
 function getTeamName(teamId: string | undefined, fallback = "TBD") {
@@ -72,6 +78,35 @@ function asCalculatedTables(payload: Record<string, unknown>): CalculatedTable[]
   }
 
   return tables.filter((table): table is CalculatedTable => typeof table === "object" && table !== null);
+}
+
+function getPredictorGroupTables(submission: SubmissionDetail) {
+  const tables = asCalculatedTables(submission.predictionPayload);
+
+  return groups.map((group) => {
+    const storedTable = tables.find((table) => table.group?.id === group.id)?.table ?? [];
+
+    return {
+      group,
+      table: storedTable,
+    };
+  });
+}
+
+function getPredictorThirdPlaceTable(tables: Array<{ group: Group; table: TableRow[] }>): ThirdPlaceEntry[] {
+  return tables
+    .map(({ group, table }) => ({
+      group,
+      row: table[2],
+    }))
+    .filter((entry): entry is ThirdPlaceEntry => Boolean(entry.row?.teamId))
+    .sort(
+      (a, b) =>
+        (b.row.points ?? 0) - (a.row.points ?? 0) ||
+        (b.row.goalDifference ?? 0) - (a.row.goalDifference ?? 0) ||
+        (b.row.goalsFor ?? 0) - (a.row.goalsFor ?? 0) ||
+        getTeamName(a.row.teamId).localeCompare(getTeamName(b.row.teamId)),
+    );
 }
 
 function buildClassicRounds(submission: SubmissionDetail): ReadonlyRound[] {
@@ -236,6 +271,105 @@ function MatchCard({ match, winnerId, score }: { match: ReadonlyMatch; winnerId?
   );
 }
 
+function GroupTableView({ tables }: { tables: Array<{ group: Group; table: TableRow[] }> }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {tables.map(({ group, table }) => (
+        <article key={group.id} className="rounded-xl border border-zinc-200 bg-[#fbfaf3] p-3">
+          <p className="text-sm font-black text-zinc-950">{group.name}</p>
+          <div className="mt-3 space-y-2">
+            {table.map((row, index) => (
+              <div key={row.teamId} className="grid grid-cols-[28px_32px_minmax(0,1fr)_52px] items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm">
+                <span className="font-black text-zinc-400">{index + 1}</span>
+                <TeamFlag teamId={row.teamId} className="h-5 w-8" />
+                <span className="min-w-0 truncate font-bold text-zinc-800">{getTeamName(row.teamId)}</span>
+                <span className="text-right font-black text-emerald-700">{row.points ?? 0} pts</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ThirdPlaceRaceView({ entries }: { entries: ThirdPlaceEntry[] }) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-amber-700">Third-place race</p>
+        <h3 className="mt-1 text-xl font-black text-zinc-950">Top 8 of 12 advance</h3>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        {entries.map(({ group, row }, index) => (
+          <div
+            key={`${group?.id}-${row.teamId}`}
+            className={`grid grid-cols-[32px_40px_minmax(0,1fr)_58px] items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+              index < 8 ? "border border-emerald-200 bg-white text-zinc-950" : "border border-zinc-200 bg-zinc-100 text-zinc-500"
+            }`}
+          >
+            <span className={`grid size-7 place-items-center rounded text-xs font-black ${index < 8 ? "bg-emerald-700 text-white" : "bg-zinc-300 text-zinc-700"}`}>
+              {index + 1}
+            </span>
+            <TeamFlag teamId={row.teamId} className="h-6 w-9" />
+            <span className="min-w-0 truncate font-black">
+              {getTeamName(row.teamId)} <span className="font-bold text-zinc-500">({group?.name ?? "Group"})</span>
+            </span>
+            <span className="text-right font-black">{row.points ?? 0} pts</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RoundListView({ rounds, submission }: { rounds: ReadonlyRound[]; submission: SubmissionDetail }) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-5">
+      {rounds.map((round) => (
+        <div key={round.title} className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-zinc-950 px-3 py-2 text-white">
+            <h3 className="text-sm font-black">{round.title}</h3>
+            <span className="rounded bg-white/10 px-2 py-1 text-xs font-black">{round.shortTitle}</span>
+          </div>
+          <div className="space-y-3">
+            {round.matches.map((match) => (
+              <MatchCard key={match.id} match={match} winnerId={submission.knockoutPicks[match.id]} score={getScoreLabel(submission.knockoutScores, match.id)} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BracketRoadView({ rounds, submission }: { rounds: ReadonlyRound[]; submission: SubmissionDetail }) {
+  return (
+    <div className="overflow-x-auto pb-2">
+      <div className="grid min-w-[980px] grid-cols-5 gap-3">
+        {rounds.map((round) => (
+          <div key={round.title} className="min-w-0">
+            <div className="mb-3 rounded-lg bg-zinc-950 px-3 py-2 text-white">
+              <h3 className="text-center text-xs font-black uppercase tracking-wide">{round.shortTitle}</h3>
+            </div>
+            <div className="flex h-full flex-col justify-around gap-3">
+              {round.matches.map((match) => (
+                <article key={match.id} className="rounded-lg border border-zinc-200 bg-[#fbfaf3] p-2">
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-zinc-500">{match.label}</p>
+                  <div className="space-y-1.5">
+                    <TeamPill teamId={match.teamA} isWinner={submission.knockoutPicks[match.id] === match.teamA} />
+                    <TeamPill teamId={match.teamB} isWinner={submission.knockoutPicks[match.id] === match.teamB} />
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function GroupPickCard({ group, pick }: { group: Group; pick?: GroupPick }) {
   return (
     <article className="rounded-xl border border-zinc-200 bg-white p-3">
@@ -266,6 +400,8 @@ function SummaryTeam({ label, teamId }: { label: string; teamId?: string }) {
 export function SubmissionBracketView({ submission }: { submission: SubmissionDetail }) {
   const isPredictor = submission.submissionType === "predictor";
   const rounds = isPredictor ? buildPredictorRounds(submission) : buildClassicRounds(submission);
+  const predictorTables = isPredictor ? getPredictorGroupTables(submission) : [];
+  const predictorThirdPlaceTable = isPredictor ? getPredictorThirdPlaceTable(predictorTables) : [];
   const champion = submission.championTeamId;
   const finalists = isPredictor ? [submission.knockoutPicks["predict-sf-1"], submission.knockoutPicks["predict-sf-2"]] : [submission.knockoutPicks["sf-1"], submission.knockoutPicks["sf-2"]];
   const submittedDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(submission.submittedAt);
@@ -323,42 +459,33 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
         </div>
       </section>
 
-      {!isPredictor ? (
-        <section className="rounded-2xl border border-zinc-200 bg-[#fbfaf3] p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Group picks</p>
-              <h2 className="mt-2 text-2xl font-black text-zinc-950">Path into the knockouts</h2>
+      {isPredictor ? (
+        <SubmissionViewSwitcher
+          groupsView={<GroupTableView tables={predictorTables} />}
+          thirdPlaceView={<ThirdPlaceRaceView entries={predictorThirdPlaceTable} />}
+          listView={<RoundListView rounds={rounds} submission={submission} />}
+          bracketView={<BracketRoadView rounds={rounds} submission={submission} />}
+        />
+      ) : (
+        <SubmissionViewSwitcher
+          groupsView={
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {groups.map((group) => (
+                <GroupPickCard key={group.id} group={group} pick={submission.groupPicks[group.id]} />
+              ))}
             </div>
-            <p className="rounded-md bg-white px-3 py-2 text-sm font-black text-zinc-700">8 third-place advancers</p>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {groups.map((group) => (
-              <GroupPickCard key={group.id} group={group} pick={submission.groupPicks[group.id]} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Bracket view</p>
-        <h2 className="mt-2 text-2xl font-black text-zinc-950">One-page locked bracket</h2>
-        <div className="mt-5 grid gap-4 xl:grid-cols-5">
-          {rounds.map((round) => (
-            <div key={round.title} className="min-w-0">
-              <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-zinc-950 px-3 py-2 text-white">
-                <h3 className="text-sm font-black">{round.title}</h3>
-                <span className="rounded bg-white/10 px-2 py-1 text-xs font-black">{round.shortTitle}</span>
-              </div>
-              <div className="space-y-3">
-                {round.matches.map((match) => (
-                  <MatchCard key={match.id} match={match} winnerId={submission.knockoutPicks[match.id]} score={getScoreLabel(submission.knockoutScores, match.id)} />
-                ))}
-              </div>
+          }
+          thirdPlaceView={
+            <div className="grid gap-2 md:grid-cols-2">
+              {submission.thirdPlaceAdvancers.map((teamId, index) => (
+                <SummaryTeam key={`${teamId}-${index}`} label={`Advancer ${index + 1}`} teamId={teamId} />
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          }
+          listView={<RoundListView rounds={rounds} submission={submission} />}
+          bracketView={<BracketRoadView rounds={rounds} submission={submission} />}
+        />
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Link href="/leaderboard" className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-5 py-3 text-sm font-black text-white transition hover:bg-zinc-800">
