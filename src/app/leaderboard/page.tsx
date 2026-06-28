@@ -32,8 +32,8 @@ export default async function LeaderboardPage() {
                 <th className="px-5 py-3">Rank</th>
                 <th className="px-5 py-3">Player</th>
                 <th className="px-5 py-3">Points</th>
-                <th className="px-5 py-3">Entry type</th>
-                <th className="px-5 py-3">Champion pick</th>
+                <th className="px-5 py-3">Champion</th>
+                <th className="px-5 py-3">Original champ</th>
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3">Bracket</th>
               </tr>
@@ -45,20 +45,25 @@ export default async function LeaderboardPage() {
                   <td className="px-5 py-4 font-bold text-zinc-950">{entry.playerName}</td>
                   <td className="px-5 py-4 font-black text-emerald-800">{entry.points}</td>
                   <td className="px-5 py-4">
-                    <span className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-bold capitalize text-zinc-700">
-                      {entry.submissionType}
+                    <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${entry.officialChampionPick ? "bg-emerald-50 text-emerald-800" : "bg-zinc-100 text-zinc-700"}`}>
+                      {entry.championPick}
                     </span>
                   </td>
-                  <td className="px-5 py-4">{entry.championPick}</td>
+                  <td className="px-5 py-4 text-zinc-600">{entry.originalChampionPick}</td>
                   <td className="px-5 py-4">
-                    <span className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-bold text-zinc-700">
+                    <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${entry.officialKnockoutSubmittedAt ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
                       {entry.status}
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <Link href={`/submission/${entry.id}`} className="font-black text-emerald-700 hover:text-emerald-900">
-                      View
-                    </Link>
+                    <div className="flex gap-3">
+                      <Link href={`/submission/${entry.id}`} className="font-black text-emerald-700 hover:text-emerald-900">
+                        View
+                      </Link>
+                      <Link href={`/submission/${entry.id}/official-knockout`} className="font-black text-zinc-700 hover:text-zinc-950">
+                        Official
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

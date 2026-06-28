@@ -6,6 +6,7 @@ import { homeAssets } from "@/data/homeAssets";
 import { buildOfficialKnockoutRounds, getCalculatedTablesFromPayload, isOfficialBracketReady } from "@/data/officialKnockout";
 import { teamsById } from "@/data/teams";
 import type { SubmissionDetail } from "@/db/queries";
+import { getGroupStageScoreBreakdownFromClassicPicks, getGroupStageScoreBreakdownFromPredictionPayload } from "@/lib/scoring";
 import type { Group, GroupPick, ScorePick } from "@/types/bracket";
 
 type TableRow = {
@@ -411,6 +412,74 @@ function SummaryTeam({ label, teamId }: { label: string; teamId?: string }) {
   );
 }
 
+function ScoreBreakdown({ submission, isPredictor }: { submission: SubmissionDetail; isPredictor: boolean }) {
+  const breakdown = isPredictor
+    ? getGroupStageScoreBreakdownFromPredictionPayload(submission.predictionPayload)
+    : getGroupStageScoreBreakdownFromClassicPicks(submission.groupPicks, submission.thirdPlaceAdvancers);
+  const groupRowsWithPoints = breakdown.groupRows.filter((row) => row.total > 0);
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-zinc-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Scorecard</p>
+          <h2 className="mt-1 text-3xl font-black text-zinc-950">{submission.points} points</h2>
+        </div>
+        <span className="w-fit rounded-md bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-800">
+          Group stage scored
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-2">
+          {groupRowsWithPoints.length > 0 ? (
+            groupRowsWithPoints.map((row) => (
+              <article key={row.groupId} className="rounded-lg border border-zinc-200 bg-[#fbfaf3] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-zinc-950">Group {row.groupId.toUpperCase()}</p>
+                  <span className="rounded bg-zinc-950 px-2 py-1 text-xs font-black text-white">+{row.total}</span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <PointLine label="Winner" points={row.winnerPoints} predictedTeamId={row.predicted.winnerId} actualTeamId={row.actual.winnerId} />
+                  <PointLine label="Runner-up" points={row.runnerUpPoints} predictedTeamId={row.predicted.runnerUpId} actualTeamId={row.actual.runnerUpId} />
+                  <PointLine label="Third" points={row.thirdPlacePoints} predictedTeamId={row.predicted.thirdPlaceId} actualTeamId={row.actual.thirdPlaceId} />
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-lg bg-zinc-50 px-3 py-3 text-sm font-bold text-zinc-600">No group placement points yet.</p>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+          <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Third-place advancers</p>
+          <p className="mt-2 text-2xl font-black text-zinc-950">+{breakdown.thirdPlaceAdvancers.reduce((sum, row) => sum + row.points, 0)}</p>
+          <div className="mt-3 space-y-2">
+            {breakdown.thirdPlaceAdvancers.length > 0 ? (
+              breakdown.thirdPlaceAdvancers.map((row) => <SummaryTeam key={row.teamId} label={`+${row.points}`} teamId={row.teamId} />)
+            ) : (
+              <p className="text-sm font-bold text-zinc-600">No third-place advancer hits.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PointLine({ label, points, predictedTeamId, actualTeamId }: { label: string; points: number; predictedTeamId?: string; actualTeamId?: string }) {
+  return (
+    <div className={`rounded-lg px-3 py-2 ${points > 0 ? "bg-emerald-50" : "bg-white"}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase tracking-wide text-zinc-500">{label}</p>
+        <span className={`rounded px-2 py-1 text-xs font-black ${points > 0 ? "bg-emerald-700 text-white" : "bg-zinc-100 text-zinc-500"}`}>+{points}</span>
+      </div>
+      <p className="mt-2 truncate text-sm font-black text-zinc-950">{getTeamName(predictedTeamId)}</p>
+      {points === 0 ? <p className="mt-1 truncate text-xs font-bold text-zinc-500">Actual: {getTeamName(actualTeamId)}</p> : null}
+    </div>
+  );
+}
+
 export function SubmissionBracketView({ submission }: { submission: SubmissionDetail }) {
   const isPredictor = submission.submissionType === "predictor";
   const rounds = isPredictor ? buildPredictorRounds(submission) : buildClassicRounds(submission);
@@ -490,6 +559,8 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
           </div>
         </div>
       </section>
+
+      <ScoreBreakdown submission={submission} isPredictor={isPredictor} />
 
       {hasOfficialPicks ? (
         <section className="space-y-4">

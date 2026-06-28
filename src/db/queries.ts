@@ -13,14 +13,18 @@ export type LeaderboardRow = {
   playerName: string;
   points: number;
   championPick: string;
+  originalChampionPick: string;
+  officialChampionPick: string | null;
   submissionType: string;
-  status: "Submitted";
+  officialKnockoutSubmittedAt: Date | null;
+  status: "Submitted" | "Official picks locked" | "Needs official picks";
 };
 
 export type SubmissionDetail = {
   id: string;
   playerName: string;
   submissionType: string;
+  points: number;
   championTeamId: string;
   groupPicks: Record<string, GroupPick>;
   thirdPlaceAdvancers: string[];
@@ -85,6 +89,8 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
         playerName: players.name,
         points: brackets.points,
         championTeamId: brackets.championTeamId,
+        officialChampionTeamId: brackets.officialChampionTeamId,
+        officialKnockoutSubmittedAt: brackets.officialKnockoutSubmittedAt,
         submissionType: brackets.submissionType,
       })
       .from(brackets)
@@ -96,9 +102,12 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
       rank: index + 1,
       playerName: row.playerName,
       points: row.points,
-      championPick: teamsById.get(row.championTeamId)?.name ?? row.championTeamId,
+      championPick: teamsById.get(row.officialChampionTeamId ?? row.championTeamId)?.name ?? row.officialChampionTeamId ?? row.championTeamId,
+      originalChampionPick: teamsById.get(row.championTeamId)?.name ?? row.championTeamId,
+      officialChampionPick: row.officialChampionTeamId ? teamsById.get(row.officialChampionTeamId)?.name ?? row.officialChampionTeamId : null,
       submissionType: row.submissionType,
-      status: "Submitted",
+      officialKnockoutSubmittedAt: row.officialKnockoutSubmittedAt,
+      status: row.officialKnockoutSubmittedAt ? "Official picks locked" : "Needs official picks",
     }));
   } catch (error) {
     console.error("Leaderboard query failed", error);
@@ -117,6 +126,7 @@ export async function getSubmissionDetail(id: string): Promise<SubmissionDetail 
         id: brackets.id,
         playerName: players.name,
         submissionType: brackets.submissionType,
+        points: brackets.points,
         championTeamId: brackets.championTeamId,
         groupPicks: brackets.groupPicks,
         thirdPlaceAdvancers: brackets.thirdPlaceAdvancers,

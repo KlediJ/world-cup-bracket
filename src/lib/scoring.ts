@@ -55,6 +55,27 @@ type CalculatedTable = {
   table?: TableRow[];
 };
 
+export type GroupScoreBreakdownRow = {
+  groupId: string;
+  predicted: GroupPick;
+  actual: GroupPick;
+  winnerPoints: number;
+  runnerUpPoints: number;
+  thirdPlacePoints: number;
+  total: number;
+};
+
+export type ThirdPlaceAdvancerBreakdownRow = {
+  teamId: string;
+  points: number;
+};
+
+export type GroupStageScoreBreakdown = {
+  groupRows: GroupScoreBreakdownRow[];
+  thirdPlaceAdvancers: ThirdPlaceAdvancerBreakdownRow[];
+  total: number;
+};
+
 function asCalculatedTables(payload: Record<string, unknown>): CalculatedTable[] {
   const tables = payload.calculatedTables;
 
@@ -78,6 +99,79 @@ function getPredictedThirdPlaceAdvancers(tables: CalculatedTable[]) {
     )
     .slice(0, 8)
     .map((row) => row.teamId);
+}
+
+function getGroupRowPoints(predicted: GroupPick, actual: GroupPick) {
+  const winnerPoints = predicted.winnerId === actual.winnerId ? scoringValues.groupWinner : 0;
+  const runnerUpPoints = predicted.runnerUpId === actual.runnerUpId ? scoringValues.groupRunnerUp : 0;
+  const thirdPlacePoints = predicted.thirdPlaceId === actual.thirdPlaceId ? scoringValues.groupThirdPlace : 0;
+
+  return {
+    winnerPoints,
+    runnerUpPoints,
+    thirdPlacePoints,
+    total: winnerPoints + runnerUpPoints + thirdPlacePoints,
+  };
+}
+
+function buildBreakdown(groupPicks: Record<string, GroupPick>, thirdPlaceAdvancers: string[]): GroupStageScoreBreakdown {
+  const groupRows = Object.entries(actualGroupResults).map(([groupId, actual]) => {
+    const predicted = groupPicks[groupId] ?? { winnerId: "", runnerUpId: "", thirdPlaceId: "" };
+
+    return {
+      groupId,
+      predicted,
+      actual,
+      ...getGroupRowPoints(predicted, actual),
+    };
+  });
+  const thirdPlaceAdvancerRows = thirdPlaceAdvancers
+    .filter((teamId) => actualThirdPlaceAdvancers.includes(teamId))
+    .map((teamId) => ({
+      teamId,
+      points: scoringValues.thirdPlaceAdvancer,
+    }));
+  const total = groupRows.reduce((sum, row) => sum + row.total, 0) + thirdPlaceAdvancerRows.reduce((sum, row) => sum + row.points, 0);
+
+  return {
+    groupRows,
+    thirdPlaceAdvancers: thirdPlaceAdvancerRows,
+    total,
+  };
+}
+
+export function getPredictedGroupPicksFromPredictionPayload(predictionPayload: Record<string, unknown>) {
+  const predictedTables = asCalculatedTables(predictionPayload);
+  const groupPicks: Record<string, GroupPick> = {};
+
+  for (const predictedTable of predictedTables) {
+    const groupId = predictedTable.group?.id;
+
+    if (!groupId) {
+      continue;
+    }
+
+    groupPicks[groupId] = {
+      winnerId: predictedTable.table?.[0]?.teamId ?? "",
+      runnerUpId: predictedTable.table?.[1]?.teamId ?? "",
+      thirdPlaceId: predictedTable.table?.[2]?.teamId ?? "",
+    };
+  }
+
+  return {
+    groupPicks,
+    thirdPlaceAdvancers: getPredictedThirdPlaceAdvancers(predictedTables),
+  };
+}
+
+export function getGroupStageScoreBreakdownFromPredictionPayload(predictionPayload: Record<string, unknown>) {
+  const predicted = getPredictedGroupPicksFromPredictionPayload(predictionPayload);
+
+  return buildBreakdown(predicted.groupPicks, predicted.thirdPlaceAdvancers);
+}
+
+export function getGroupStageScoreBreakdownFromClassicPicks(groupPicks: Record<string, GroupPick>, thirdPlaceAdvancers: string[]) {
+  return buildBreakdown(groupPicks, thirdPlaceAdvancers);
 }
 
 export function calculateGroupStageScoreFromPredictionPayload(predictionPayload: Record<string, unknown>) {
