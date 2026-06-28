@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { deleteSubmission, isAdminAuthenticated, loginAdmin, logoutAdmin } from "@/app/admin/actions";
+import { deleteSubmission, isAdminAuthenticated, loginAdmin, logoutAdmin, reopenOfficialKnockoutPicks } from "@/app/admin/actions";
 import { getAdminSubmissions } from "@/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -119,6 +119,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 <th className="px-5 py-3">Email</th>
                 <th className="px-5 py-3">Type</th>
                 <th className="px-5 py-3">Champion</th>
+                <th className="px-5 py-3">Official KO</th>
                 <th className="px-5 py-3">Points</th>
                 <th className="px-5 py-3">Submitted</th>
                 <th className="px-5 py-3">Actions</th>
@@ -135,6 +136,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                     </span>
                   </td>
                   <td className="px-5 py-4 font-bold text-zinc-950">{entry.championPick}</td>
+                  <td className="px-5 py-4">
+                    <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${entry.officialKnockoutSubmittedAt ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+                      {entry.officialKnockoutSubmittedAt ? "Submitted" : "Open"}
+                    </span>
+                  </td>
                   <td className="px-5 py-4 font-black text-emerald-800">{entry.points}</td>
                   <td className="px-5 py-4 font-semibold text-zinc-600">
                     {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(entry.submittedAt)}
@@ -144,6 +150,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       <Link href={`/submission/${entry.id}`} className="font-black text-emerald-700 hover:text-emerald-900">
                         View
                       </Link>
+                      <Link href={`/submission/${entry.id}/official-knockout`} className="font-black text-zinc-700 hover:text-zinc-950">
+                        Official
+                      </Link>
+                      {entry.officialKnockoutSubmittedAt ? (
+                        <form action={reopenOfficialKnockoutPicks}>
+                          <input type="hidden" name="bracketId" value={entry.id} />
+                          <button type="submit" className="font-black text-amber-700 hover:text-amber-900">
+                            Reopen
+                          </button>
+                        </form>
+                      ) : null}
                       <form action={deleteSubmission}>
                         <input type="hidden" name="playerId" value={entry.playerId} />
                         <button type="submit" className="font-black text-red-700 hover:text-red-900">

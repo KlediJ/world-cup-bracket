@@ -3,6 +3,7 @@ import { ShareSubmissionControls } from "@/components/ShareSubmissionControls";
 import { SubmissionViewSwitcher } from "@/components/SubmissionViewSwitcher";
 import { groups } from "@/data/groups";
 import { homeAssets } from "@/data/homeAssets";
+import { buildOfficialKnockoutRounds, getCalculatedTablesFromPayload, isOfficialBracketReady } from "@/data/officialKnockout";
 import { teamsById } from "@/data/teams";
 import type { SubmissionDetail } from "@/db/queries";
 import type { Group, GroupPick, ScorePick } from "@/types/bracket";
@@ -232,6 +233,19 @@ function buildPredictorRounds(submission: SubmissionDetail): ReadonlyRound[] {
   ];
 }
 
+function toReadonlyOfficialRounds(tables: ReturnType<typeof getCalculatedTablesFromPayload>, picks: Record<string, string>): ReadonlyRound[] {
+  return buildOfficialKnockoutRounds(tables, picks).map((round) => ({
+    title: round.title,
+    shortTitle: round.shortTitle,
+    matches: round.matches.map((match) => ({
+      id: match.id,
+      label: match.label,
+      teamA: match.homeTeamId,
+      teamB: match.awayTeamId,
+    })),
+  }));
+}
+
 function getScoreLabel(scores: Record<string, ScorePick>, matchId: string) {
   const score = scores[matchId];
 
@@ -400,10 +414,16 @@ function SummaryTeam({ label, teamId }: { label: string; teamId?: string }) {
 export function SubmissionBracketView({ submission }: { submission: SubmissionDetail }) {
   const isPredictor = submission.submissionType === "predictor";
   const rounds = isPredictor ? buildPredictorRounds(submission) : buildClassicRounds(submission);
+  const officialTables = getCalculatedTablesFromPayload(submission.predictionPayload);
+  const officialRounds = toReadonlyOfficialRounds(officialTables, submission.officialKnockoutPicks ?? {});
   const predictorTables = isPredictor ? getPredictorGroupTables(submission) : [];
   const predictorThirdPlaceTable = isPredictor ? getPredictorThirdPlaceTable(predictorTables) : [];
   const champion = submission.championTeamId;
+  const officialChampion = submission.officialChampionTeamId;
   const finalists = isPredictor ? [submission.knockoutPicks["predict-sf-1"], submission.knockoutPicks["predict-sf-2"]] : [submission.knockoutPicks["sf-1"], submission.knockoutPicks["sf-2"]];
+  const officialFinalists = [submission.officialKnockoutPicks?.["official-sf-101"], submission.officialKnockoutPicks?.["official-sf-102"]];
+  const hasOfficialPicks = Boolean(submission.officialKnockoutSubmittedAt);
+  const officialBracketReady = isOfficialBracketReady(officialTables);
   const submittedDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(submission.submittedAt);
 
   return (
@@ -425,6 +445,9 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
                 {isPredictor ? "Match predictor" : "Classic bracket"}
               </span>
               <span className="rounded-md bg-amber-300 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-950">Locked</span>
+              <span className={`rounded-md px-3 py-2 text-xs font-black uppercase tracking-wide ${hasOfficialPicks ? "bg-emerald-300 text-emerald-950" : "bg-white/10 text-white"}`}>
+                Official KO {hasOfficialPicks ? "locked" : "open"}
+              </span>
             </div>
           </div>
 
@@ -443,21 +466,50 @@ export function SubmissionBracketView({ submission }: { submission: SubmissionDe
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Finalists</p>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{hasOfficialPicks ? "Official finalists" : "Original finalists"}</p>
           <div className="mt-3 space-y-2">
-            {finalists.map((teamId, index) => (
+            {(hasOfficialPicks ? officialFinalists : finalists).map((teamId, index) => (
               <SummaryTeam key={`${teamId}-${index}`} label={`Finalist ${index + 1}`} teamId={teamId} />
             ))}
           </div>
         </div>
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm md:col-span-2">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Share</p>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Official knockout</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">
-            Keep this link handy to reopen the bracket later.
+            {hasOfficialPicks
+              ? `Official picks locked${submission.officialKnockoutSubmittedAt ? ` ${new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(submission.officialKnockoutSubmittedAt)}` : ""}.`
+              : officialBracketReady
+                ? "Use this existing submission link to make the corrected official knockout picks from this player's group predictions."
+                : "This original submission is missing enough group-table data to build the corrected path."}
           </p>
-          <ShareSubmissionControls playerName={submission.playerName} championName={getTeamName(champion)} />
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <Link href={`/submission/${submission.id}/official-knockout`} className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800">
+              {hasOfficialPicks ? "View Official Picks" : "Make Official Picks"}
+            </Link>
+            <ShareSubmissionControls playerName={submission.playerName} championName={getTeamName(officialChampion ?? champion)} />
+          </div>
         </div>
       </section>
+
+      {hasOfficialPicks ? (
+        <section className="space-y-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Corrected path</p>
+            <h2 className="mt-1 text-3xl font-black text-zinc-950">Official knockout bracket</h2>
+          </div>
+          <SubmissionViewSwitcher
+            groupsView={
+              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-black text-zinc-950">Original group-stage receipt stays below.</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-zinc-600">These official knockout picks are the corrected bracket path for scoring.</p>
+              </div>
+            }
+            thirdPlaceView={<RoundListView rounds={officialRounds} submission={{ ...submission, knockoutPicks: submission.officialKnockoutPicks }} />}
+            listView={<RoundListView rounds={officialRounds} submission={{ ...submission, knockoutPicks: submission.officialKnockoutPicks }} />}
+            bracketView={<BracketRoadView rounds={officialRounds} submission={{ ...submission, knockoutPicks: submission.officialKnockoutPicks }} />}
+          />
+        </section>
+      ) : null}
 
       {isPredictor ? (
         <SubmissionViewSwitcher

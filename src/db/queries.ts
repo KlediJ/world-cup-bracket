@@ -26,6 +26,9 @@ export type SubmissionDetail = {
   thirdPlaceAdvancers: string[];
   knockoutPicks: Record<string, string>;
   knockoutScores: Record<string, ScorePick>;
+  officialKnockoutPicks: Record<string, string>;
+  officialChampionTeamId: string | null;
+  officialKnockoutSubmittedAt: Date | null;
   predictionPayload: Record<string, unknown>;
   submittedAt: Date;
 };
@@ -38,6 +41,7 @@ export type AdminSubmissionRow = {
   points: number;
   championPick: string;
   submissionType: string;
+  officialKnockoutSubmittedAt: Date | null;
   submittedAt: Date;
 };
 
@@ -118,6 +122,9 @@ export async function getSubmissionDetail(id: string): Promise<SubmissionDetail 
         thirdPlaceAdvancers: brackets.thirdPlaceAdvancers,
         knockoutPicks: brackets.knockoutPicks,
         knockoutScores: brackets.knockoutScores,
+        officialKnockoutPicks: brackets.officialKnockoutPicks,
+        officialChampionTeamId: brackets.officialChampionTeamId,
+        officialKnockoutSubmittedAt: brackets.officialKnockoutSubmittedAt,
         predictionPayload: brackets.predictionPayload,
         submittedAt: brackets.submittedAt,
       })
@@ -148,6 +155,7 @@ export async function getAdminSubmissions(search = ""): Promise<AdminSubmissionR
         points: brackets.points,
         championTeamId: brackets.championTeamId,
         submissionType: brackets.submissionType,
+        officialKnockoutSubmittedAt: brackets.officialKnockoutSubmittedAt,
         submittedAt: brackets.submittedAt,
       })
       .from(brackets)
@@ -176,6 +184,7 @@ export async function getAdminSubmissions(search = ""): Promise<AdminSubmissionR
         points: row.points,
         championPick: teamsById.get(row.championTeamId)?.name ?? row.championTeamId,
         submissionType: row.submissionType,
+        officialKnockoutSubmittedAt: row.officialKnockoutSubmittedAt,
         submittedAt: row.submittedAt,
       }));
   } catch (error) {

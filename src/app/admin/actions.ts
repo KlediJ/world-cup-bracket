@@ -81,3 +81,30 @@ export async function deleteBracketOnly(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/leaderboard");
 }
+
+export async function reopenOfficialKnockoutPicks(formData: FormData) {
+  if (!(await isAdminAuthenticated())) {
+    redirect("/admin");
+  }
+
+  const bracketId = String(formData.get("bracketId") ?? "");
+
+  if (!bracketId) {
+    return;
+  }
+
+  await getDb()
+    .update(brackets)
+    .set({
+      officialKnockoutPicks: {},
+      officialChampionTeamId: null,
+      officialKnockoutSubmittedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(brackets.id, bracketId));
+
+  revalidatePath("/admin");
+  revalidatePath(`/submission/${bracketId}`);
+  revalidatePath(`/submission/${bracketId}/official-knockout`);
+  revalidatePath("/leaderboard");
+}
