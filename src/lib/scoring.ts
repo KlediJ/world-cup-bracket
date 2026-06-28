@@ -1,4 +1,5 @@
 import type { GroupPick, ScorePick } from "@/types/bracket";
+import { actualGroupResults, actualThirdPlaceAdvancers } from "@/data/actualResults";
 
 export const scoringRules = [
   { label: "Correct group winner", points: 3 },
@@ -39,6 +40,111 @@ export type BracketResults = {
   knockoutWinners: Record<string, string>;
   knockoutScores: Record<string, ScorePick>;
 };
+
+type TableRow = {
+  teamId: string;
+  points?: number;
+  goalDifference?: number;
+  goalsFor?: number;
+};
+
+type CalculatedTable = {
+  group?: {
+    id?: string;
+  };
+  table?: TableRow[];
+};
+
+function asCalculatedTables(payload: Record<string, unknown>): CalculatedTable[] {
+  const tables = payload.calculatedTables;
+
+  if (!Array.isArray(tables)) {
+    return [];
+  }
+
+  return tables.filter((table): table is CalculatedTable => typeof table === "object" && table !== null);
+}
+
+function getPredictedThirdPlaceAdvancers(tables: CalculatedTable[]) {
+  return tables
+    .map((table) => table.table?.[2])
+    .filter((row): row is TableRow => Boolean(row?.teamId))
+    .sort(
+      (a, b) =>
+        (b.points ?? 0) - (a.points ?? 0) ||
+        (b.goalDifference ?? 0) - (a.goalDifference ?? 0) ||
+        (b.goalsFor ?? 0) - (a.goalsFor ?? 0) ||
+        a.teamId.localeCompare(b.teamId),
+    )
+    .slice(0, 8)
+    .map((row) => row.teamId);
+}
+
+export function calculateGroupStageScoreFromPredictionPayload(predictionPayload: Record<string, unknown>) {
+  const predictedTables = asCalculatedTables(predictionPayload);
+  let total = 0;
+
+  for (const predictedTable of predictedTables) {
+    const groupId = predictedTable.group?.id;
+    const actualGroup = groupId ? actualGroupResults[groupId] : null;
+
+    if (!actualGroup) {
+      continue;
+    }
+
+    if (predictedTable.table?.[0]?.teamId === actualGroup.winnerId) {
+      total += scoringValues.groupWinner;
+    }
+
+    if (predictedTable.table?.[1]?.teamId === actualGroup.runnerUpId) {
+      total += scoringValues.groupRunnerUp;
+    }
+
+    if (predictedTable.table?.[2]?.teamId === actualGroup.thirdPlaceId) {
+      total += scoringValues.groupThirdPlace;
+    }
+  }
+
+  for (const teamId of getPredictedThirdPlaceAdvancers(predictedTables)) {
+    if (actualThirdPlaceAdvancers.includes(teamId)) {
+      total += scoringValues.thirdPlaceAdvancer;
+    }
+  }
+
+  return total;
+}
+
+export function calculateGroupStageScoreFromClassicPicks(groupPicks: Record<string, GroupPick>, thirdPlaceAdvancers: string[]) {
+  let total = 0;
+
+  for (const [groupId, pick] of Object.entries(groupPicks)) {
+    const actualGroup = actualGroupResults[groupId];
+
+    if (!actualGroup) {
+      continue;
+    }
+
+    if (pick.winnerId === actualGroup.winnerId) {
+      total += scoringValues.groupWinner;
+    }
+
+    if (pick.runnerUpId === actualGroup.runnerUpId) {
+      total += scoringValues.groupRunnerUp;
+    }
+
+    if (pick.thirdPlaceId === actualGroup.thirdPlaceId) {
+      total += scoringValues.groupThirdPlace;
+    }
+  }
+
+  for (const teamId of thirdPlaceAdvancers) {
+    if (actualThirdPlaceAdvancers.includes(teamId)) {
+      total += scoringValues.thirdPlaceAdvancer;
+    }
+  }
+
+  return total;
+}
 
 function getWinnerPoints(matchId: string) {
   if (matchId.startsWith("r32-")) {
