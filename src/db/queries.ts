@@ -62,6 +62,17 @@ export type ResultSyncStatus = {
   liveMatches: number;
   scheduledMatches: number;
   latestUpdatedAt: Date | null;
+  matches: {
+    matchId: string;
+    stage: string;
+    status: string;
+    homeTeamId: string;
+    awayTeamId: string;
+    homeScore: number | null;
+    awayScore: number | null;
+    winnerTeamId: string | null;
+    updatedAt: Date;
+  }[];
   recentMatches: {
     matchId: string;
     stage: string;
@@ -143,6 +154,7 @@ export async function getResultSyncStatus(): Promise<ResultSyncStatus> {
     liveMatches: 0,
     scheduledMatches: 0,
     latestUpdatedAt: null,
+    matches: [],
     recentMatches: [],
   };
 
@@ -173,6 +185,7 @@ export async function getResultSyncStatus(): Promise<ResultSyncStatus> {
       liveMatches: rows.filter((row) => row.status === "live").length,
       scheduledMatches: rows.filter((row) => row.status === "scheduled").length,
       latestUpdatedAt: rows[0]?.updatedAt ?? null,
+      matches: rows,
       recentMatches: rows.slice(0, 4),
     };
   } catch (error) {
