@@ -153,9 +153,7 @@ function getWinnerTeamId(match: FootballDataMatch, homeTeamId: string, awayTeamI
 }
 
 function endpoint() {
-  const competition = process.env.FOOTBALL_DATA_COMPETITION ?? "WC";
-  const season = process.env.FOOTBALL_DATA_SEASON ?? "2026";
-  return `https://api.football-data.org/v4/competitions/${competition}/matches?season=${season}`;
+  return process.env.FOOTBALL_DATA_MATCHES_URL ?? "https://api.football-data.org/v4/matches";
 }
 
 export async function fetchFootballDataResults(existingWinners: Record<string, string>) {
