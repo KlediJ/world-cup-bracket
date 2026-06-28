@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { teamsById } from "@/data/teams";
 import { getDb } from "@/db/client";
-import { brackets, players, pools } from "@/db/schema";
+import { brackets, matchResults, players, pools } from "@/db/schema";
 import type { GroupPick, ScorePick } from "@/types/bracket";
 
 export const DEFAULT_POOL_CODE = "world-cup-2026";
@@ -53,6 +53,26 @@ export type ChampionPickCount = {
   teamId: string;
   teamName: string;
   count: number;
+};
+
+export type ResultSyncStatus = {
+  connected: boolean;
+  totalMatches: number;
+  finalMatches: number;
+  liveMatches: number;
+  scheduledMatches: number;
+  latestUpdatedAt: Date | null;
+  recentMatches: {
+    matchId: string;
+    stage: string;
+    status: string;
+    homeTeamId: string;
+    awayTeamId: string;
+    homeScore: number | null;
+    awayScore: number | null;
+    winnerTeamId: string | null;
+    updatedAt: Date;
+  }[];
 };
 
 export async function ensureDefaultPool() {
@@ -112,6 +132,52 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   } catch (error) {
     console.error("Leaderboard query failed", error);
     return [];
+  }
+}
+
+export async function getResultSyncStatus(): Promise<ResultSyncStatus> {
+  const emptyStatus: ResultSyncStatus = {
+    connected: Boolean(process.env.DATABASE_URL),
+    totalMatches: 0,
+    finalMatches: 0,
+    liveMatches: 0,
+    scheduledMatches: 0,
+    latestUpdatedAt: null,
+    recentMatches: [],
+  };
+
+  if (!process.env.DATABASE_URL) {
+    return emptyStatus;
+  }
+
+  try {
+    const rows = await getDb()
+      .select({
+        matchId: matchResults.matchId,
+        stage: matchResults.stage,
+        status: matchResults.status,
+        homeTeamId: matchResults.homeTeamId,
+        awayTeamId: matchResults.awayTeamId,
+        homeScore: matchResults.homeScore,
+        awayScore: matchResults.awayScore,
+        winnerTeamId: matchResults.winnerTeamId,
+        updatedAt: matchResults.updatedAt,
+      })
+      .from(matchResults)
+      .orderBy(desc(matchResults.updatedAt));
+
+    return {
+      connected: true,
+      totalMatches: rows.length,
+      finalMatches: rows.filter((row) => row.status === "final").length,
+      liveMatches: rows.filter((row) => row.status === "live").length,
+      scheduledMatches: rows.filter((row) => row.status === "scheduled").length,
+      latestUpdatedAt: rows[0]?.updatedAt ?? null,
+      recentMatches: rows.slice(0, 4),
+    };
+  } catch (error) {
+    console.error("Result sync status query failed", error);
+    return emptyStatus;
   }
 }
 

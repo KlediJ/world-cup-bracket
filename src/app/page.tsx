@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { actualRoundOf32Matches } from "@/data/actualResults";
 import { teamsById } from "@/data/teams";
-import { getLeaderboard } from "@/db/queries";
+import { getLeaderboard, getResultSyncStatus } from "@/db/queries";
+import type { ResultSyncStatus } from "@/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +32,58 @@ function TeamLine({ teamId }: { teamId: string }) {
   );
 }
 
+function formatSyncTime(date: Date | null) {
+  if (!date) {
+    return "No sync yet";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
+function getSyncLabel(status: ResultSyncStatus) {
+  if (!status.connected) {
+    return "Database not connected";
+  }
+
+  if (status.totalMatches === 0) {
+    return "Waiting for first sync";
+  }
+
+  if (status.liveMatches > 0) {
+    return "Live feed active";
+  }
+
+  return "Feed synced";
+}
+
+function MatchResultLine({ match }: { match: ResultSyncStatus["recentMatches"][number] }) {
+  const hasScore = typeof match.homeScore === "number" && typeof match.awayScore === "number";
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/10 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-wide text-amber-200">{match.stage}</p>
+        <span className="rounded bg-white px-2 py-1 text-[10px] font-black uppercase text-zinc-950">{match.status}</span>
+      </div>
+      <div className="grid grid-cols-[1fr_auto] gap-3 text-sm font-black text-white">
+        <span className="truncate">{getTeamName(match.homeTeamId)}</span>
+        <span>{hasScore ? match.homeScore : "-"}</span>
+        <span className="truncate">{getTeamName(match.awayTeamId)}</span>
+        <span>{hasScore ? match.awayScore : "-"}</span>
+      </div>
+    </div>
+  );
+}
+
 export default async function Home() {
   const leaderboard = await getLeaderboard();
+  const resultSyncStatus = await getResultSyncStatus();
   const officialPickCount = leaderboard.filter((entry) => entry.officialKnockoutSubmittedAt).length;
   const topThree = leaderboard.slice(0, 3);
 
@@ -81,11 +132,32 @@ export default async function Home() {
           </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-zinc-950 p-5 text-white shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-amber-200">Live updates</p>
-            <h2 className="mt-2 text-2xl font-black">Manual today, API next.</h2>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-200">Live score sync</p>
+                <h2 className="mt-2 text-2xl font-black">{getSyncLabel(resultSyncStatus)}</h2>
+              </div>
+              <span className={`mt-1 size-3 rounded-full ${resultSyncStatus.totalMatches > 0 ? "bg-emerald-400" : "bg-amber-300"}`} />
+            </div>
             <p className="mt-3 text-sm font-semibold leading-6 text-zinc-300">
-              The scoring script already recalculates totals from saved results. Next step is replacing the saved result file with a match-feed job.
+              Last provider update: {formatSyncTime(resultSyncStatus.latestUpdatedAt)}
             </p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <MiniStat label="Synced" value={String(resultSyncStatus.totalMatches)} />
+              <MiniStat label="Live" value={String(resultSyncStatus.liveMatches)} />
+              <MiniStat label="Final" value={String(resultSyncStatus.finalMatches)} />
+            </div>
+            {resultSyncStatus.recentMatches.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {resultSyncStatus.recentMatches.map((match) => (
+                  <MatchResultLine key={match.matchId} match={match} />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-lg border border-white/10 bg-white/10 p-3 text-sm font-semibold leading-6 text-zinc-300">
+                No match rows found yet. After the cron endpoint runs, this panel will show the stored football-data results.
+              </p>
+            )}
           </div>
         </div>
 
@@ -117,6 +189,15 @@ export default async function Home() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/10 p-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-300">{label}</p>
+      <p className="mt-1 text-2xl font-black text-white">{value}</p>
     </div>
   );
 }
