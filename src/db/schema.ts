@@ -55,6 +55,26 @@ export const brackets = pgTable("brackets", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const matchResults = pgTable(
+  "match_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    matchId: varchar("match_id", { length: 80 }).notNull(),
+    provider: varchar("provider", { length: 40 }).default("manual").notNull(),
+    providerMatchId: varchar("provider_match_id", { length: 120 }),
+    stage: varchar("stage", { length: 40 }).notNull(),
+    status: varchar("status", { length: 40 }).notNull(),
+    homeTeamId: varchar("home_team_id", { length: 80 }).notNull(),
+    awayTeamId: varchar("away_team_id", { length: 80 }).notNull(),
+    homeScore: integer("home_score"),
+    awayScore: integer("away_score"),
+    winnerTeamId: varchar("winner_team_id", { length: 80 }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("match_results_match_id_unique").on(table.matchId)],
+);
+
 export const playersRelations = relations(players, ({ one, many }) => ({
   pool: one(pools, {
     fields: [players.poolId],
@@ -78,4 +98,5 @@ export const schema = {
   pools,
   players,
   brackets,
+  matchResults,
 };

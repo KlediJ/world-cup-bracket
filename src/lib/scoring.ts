@@ -241,23 +241,23 @@ export function calculateGroupStageScoreFromClassicPicks(groupPicks: Record<stri
 }
 
 function getWinnerPoints(matchId: string) {
-  if (matchId.startsWith("r32-")) {
+  if (matchId.startsWith("r32-") || matchId.startsWith("official-r32-")) {
     return scoringValues.roundOf32Winner;
   }
 
-  if (matchId.startsWith("r16-")) {
+  if (matchId.startsWith("r16-") || matchId.startsWith("official-r16-")) {
     return scoringValues.roundOf16Winner;
   }
 
-  if (matchId.startsWith("qf-")) {
+  if (matchId.startsWith("qf-") || matchId.startsWith("official-qf-")) {
     return scoringValues.quarterfinalWinner;
   }
 
-  if (matchId.startsWith("sf-")) {
+  if (matchId.startsWith("sf-") || matchId.startsWith("official-sf-")) {
     return scoringValues.semifinalWinner;
   }
 
-  if (matchId === "champion") {
+  if (matchId === "champion" || matchId === "official-champion") {
     return scoringValues.champion;
   }
 
@@ -295,6 +295,22 @@ export function calculateBracketScore(input: BracketScoreInput, results: Bracket
 
   for (const [matchId, winnerId] of Object.entries(input.knockoutPicks)) {
     const correctWinner = results.knockoutWinners[matchId];
+
+    if (!correctWinner || winnerId !== correctWinner) {
+      continue;
+    }
+
+    total += getWinnerPoints(matchId);
+  }
+
+  return total;
+}
+
+export function calculateKnockoutScore(knockoutPicks: Record<string, string>, knockoutWinners: Record<string, string>) {
+  let total = 0;
+
+  for (const [matchId, winnerId] of Object.entries(knockoutPicks)) {
+    const correctWinner = knockoutWinners[matchId];
 
     if (!correctWinner || winnerId !== correctWinner) {
       continue;

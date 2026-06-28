@@ -25,6 +25,11 @@ const scoringValues = {
   groupRunnerUp: 2,
   groupThirdPlace: 1,
   thirdPlaceAdvancer: 1,
+  roundOf32Winner: 3,
+  roundOf16Winner: 4,
+  quarterfinalWinner: 6,
+  semifinalWinner: 8,
+  champion: 12,
 };
 
 const actualGroupResults = {
@@ -134,6 +139,42 @@ function scoreClassicPicks(groupPicks, thirdPlaceAdvancers) {
   return total;
 }
 
+function getWinnerPoints(matchId) {
+  if (matchId.startsWith("official-r32-")) {
+    return scoringValues.roundOf32Winner;
+  }
+
+  if (matchId.startsWith("official-r16-")) {
+    return scoringValues.roundOf16Winner;
+  }
+
+  if (matchId.startsWith("official-qf-")) {
+    return scoringValues.quarterfinalWinner;
+  }
+
+  if (matchId.startsWith("official-sf-")) {
+    return scoringValues.semifinalWinner;
+  }
+
+  if (matchId === "official-champion") {
+    return scoringValues.champion;
+  }
+
+  return 0;
+}
+
+function scoreKnockoutPicks(officialKnockoutPicks, knockoutWinners) {
+  let total = 0;
+
+  for (const [matchId, winnerId] of Object.entries(officialKnockoutPicks ?? {})) {
+    if (knockoutWinners[matchId] === winnerId) {
+      total += getWinnerPoints(matchId);
+    }
+  }
+
+  return total;
+}
+
 loadLocalEnv();
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -145,15 +186,23 @@ if (!databaseUrl) {
 
 const sql = neon(databaseUrl);
 const rows = await sql`
-  select id, submission_type, group_picks, third_place_advancers, prediction_payload
+  select id, submission_type, group_picks, third_place_advancers, prediction_payload, official_knockout_picks
   from brackets
 `;
+const resultRows = await sql`
+  select match_id, winner_team_id
+  from match_results
+  where winner_team_id is not null
+`;
+const knockoutWinners = Object.fromEntries(resultRows.map((row) => [row.match_id, row.winner_team_id]));
 
 for (const row of rows) {
-  const points =
+  const groupPoints =
     row.submission_type === "predictor"
       ? scorePredictionPayload(row.prediction_payload)
       : scoreClassicPicks(row.group_picks, row.third_place_advancers);
+  const knockoutPoints = scoreKnockoutPicks(row.official_knockout_picks, knockoutWinners);
+  const points = groupPoints + knockoutPoints;
 
   await sql`
     update brackets
