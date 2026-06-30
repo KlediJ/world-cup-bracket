@@ -34,6 +34,17 @@ export type SubmissionDetail = {
   officialChampionTeamId: string | null;
   officialKnockoutSubmittedAt: Date | null;
   predictionPayload: Record<string, unknown>;
+  matchResults: {
+    matchId: string;
+    stage: string;
+    status: string;
+    homeTeamId: string;
+    awayTeamId: string;
+    homeScore: number | null;
+    awayScore: number | null;
+    winnerTeamId: string | null;
+    updatedAt: Date;
+  }[];
   submittedAt: Date;
 };
 
@@ -222,7 +233,29 @@ export async function getSubmissionDetail(id: string): Promise<SubmissionDetail 
       .where(eq(brackets.id, id))
       .limit(1);
 
-    return row ?? null;
+    if (!row) {
+      return null;
+    }
+
+    const results = await getDb()
+      .select({
+        matchId: matchResults.matchId,
+        stage: matchResults.stage,
+        status: matchResults.status,
+        homeTeamId: matchResults.homeTeamId,
+        awayTeamId: matchResults.awayTeamId,
+        homeScore: matchResults.homeScore,
+        awayScore: matchResults.awayScore,
+        winnerTeamId: matchResults.winnerTeamId,
+        updatedAt: matchResults.updatedAt,
+      })
+      .from(matchResults)
+      .orderBy(desc(matchResults.updatedAt));
+
+    return {
+      ...row,
+      matchResults: results,
+    };
   } catch (error) {
     console.error("Submission query failed", error);
     return null;

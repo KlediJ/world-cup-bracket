@@ -6,7 +6,7 @@ import { homeAssets } from "@/data/homeAssets";
 import { buildOfficialKnockoutRounds, getCalculatedTablesFromPayload, isOfficialBracketReady } from "@/data/officialKnockout";
 import { teamsById } from "@/data/teams";
 import type { SubmissionDetail } from "@/db/queries";
-import { getGroupStageScoreBreakdownFromClassicPicks, getGroupStageScoreBreakdownFromPredictionPayload } from "@/lib/scoring";
+import { getGroupStageScoreBreakdownFromClassicPicks, getGroupStageScoreBreakdownFromPredictionPayload, scoringValues } from "@/lib/scoring";
 import type { Group, GroupPick, ScorePick } from "@/types/bracket";
 
 type TableRow = {
@@ -412,11 +412,56 @@ function SummaryTeam({ label, teamId }: { label: string; teamId?: string }) {
   );
 }
 
+function getOfficialWinnerPoints(matchId: string) {
+  if (matchId.startsWith("official-r32-")) {
+    return scoringValues.roundOf32Winner;
+  }
+
+  if (matchId.startsWith("official-r16-")) {
+    return scoringValues.roundOf16Winner;
+  }
+
+  if (matchId.startsWith("official-qf-")) {
+    return scoringValues.quarterfinalWinner;
+  }
+
+  if (matchId.startsWith("official-sf-")) {
+    return scoringValues.semifinalWinner;
+  }
+
+  if (matchId === "official-champion") {
+    return scoringValues.champion;
+  }
+
+  return 0;
+}
+
 function ScoreBreakdown({ submission, isPredictor }: { submission: SubmissionDetail; isPredictor: boolean }) {
   const breakdown = isPredictor
     ? getGroupStageScoreBreakdownFromPredictionPayload(submission.predictionPayload)
     : getGroupStageScoreBreakdownFromClassicPicks(submission.groupPicks, submission.thirdPlaceAdvancers);
-  const groupRowsWithPoints = breakdown.groupRows.filter((row) => row.total > 0);
+  const thirdPlacePoints = breakdown.thirdPlaceAdvancers.reduce((sum, row) => sum + row.points, 0);
+  const resultByMatchId = new Map(submission.matchResults.map((result) => [result.matchId, result]));
+  const officialTables = getCalculatedTablesFromPayload(submission.predictionPayload);
+  const officialRounds = buildOfficialKnockoutRounds(officialTables, submission.officialKnockoutPicks ?? {});
+  const officialRows = officialRounds.flatMap((round) =>
+    round.matches.map((match) => {
+      const pickedTeamId = submission.officialKnockoutPicks?.[match.id];
+      const result = resultByMatchId.get(match.id);
+      const possiblePoints = getOfficialWinnerPoints(match.id);
+      const points = result?.winnerTeamId && pickedTeamId === result.winnerTeamId ? possiblePoints : 0;
+
+      return {
+        ...match,
+        roundTitle: round.title,
+        pickedTeamId,
+        result,
+        points,
+        possiblePoints,
+      };
+    }),
+  );
+  const knockoutPoints = officialRows.reduce((sum, row) => sum + row.points, 0);
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -426,15 +471,22 @@ function ScoreBreakdown({ submission, isPredictor }: { submission: SubmissionDet
           <h2 className="mt-1 text-3xl font-black text-zinc-950">{submission.points} points</h2>
         </div>
         <span className="w-fit rounded-md bg-emerald-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-800">
-          Group stage scored
+          {breakdown.total} group + {knockoutPoints} official knockout
         </span>
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="space-y-2">
-          {groupRowsWithPoints.length > 0 ? (
-            groupRowsWithPoints.map((row) => (
-              <article key={row.groupId} className="rounded-lg border border-zinc-200 bg-[#fbfaf3] p-3">
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <ScoreTotalCard label="Group stage" value={breakdown.total} detail="Original submitted group picks" />
+        <ScoreTotalCard label="Official knockout" value={knockoutPoints} detail="Corrected official knockout picks" />
+        <ScoreTotalCard label="Total" value={submission.points} detail="Leaderboard score" tone="dark" />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <details className="rounded-xl border border-zinc-200 bg-[#fbfaf3] p-4" open>
+          <summary className="cursor-pointer text-sm font-black text-zinc-950">Group-stage detail</summary>
+          <div className="mt-4 space-y-3">
+            {breakdown.groupRows.map((row) => (
+              <article key={row.groupId} className="rounded-lg border border-zinc-200 bg-white p-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-black text-zinc-950">Group {row.groupId.toUpperCase()}</p>
                   <span className="rounded bg-zinc-950 px-2 py-1 text-xs font-black text-white">+{row.total}</span>
@@ -445,25 +497,76 @@ function ScoreBreakdown({ submission, isPredictor }: { submission: SubmissionDet
                   <PointLine label="Third" points={row.thirdPlacePoints} predictedTeamId={row.predicted.thirdPlaceId} actualTeamId={row.actual.thirdPlaceId} />
                 </div>
               </article>
-            ))
-          ) : (
-            <p className="rounded-lg bg-zinc-50 px-3 py-3 text-sm font-bold text-zinc-600">No group placement points yet.</p>
-          )}
-        </div>
-
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-          <p className="text-xs font-black uppercase tracking-wide text-zinc-500">Third-place advancers</p>
-          <p className="mt-2 text-2xl font-black text-zinc-950">+{breakdown.thirdPlaceAdvancers.reduce((sum, row) => sum + row.points, 0)}</p>
-          <div className="mt-3 space-y-2">
-            {breakdown.thirdPlaceAdvancers.length > 0 ? (
-              breakdown.thirdPlaceAdvancers.map((row) => <SummaryTeam key={row.teamId} label={`+${row.points}`} teamId={row.teamId} />)
-            ) : (
-              <p className="text-sm font-bold text-zinc-600">No third-place advancer hits.</p>
-            )}
+            ))}
+            <div className="rounded-lg border border-zinc-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-black text-zinc-950">Third-place advancers</p>
+                <span className="rounded bg-zinc-950 px-2 py-1 text-xs font-black text-white">+{thirdPlacePoints}</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {breakdown.thirdPlaceAdvancers.length > 0 ? (
+                  breakdown.thirdPlaceAdvancers.map((row) => <SummaryTeam key={row.teamId} label={`+${row.points}`} teamId={row.teamId} />)
+                ) : (
+                  <p className="text-sm font-bold text-zinc-600">No third-place advancer hits.</p>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
+
+        <details className="rounded-xl border border-zinc-200 bg-zinc-950 p-4 text-white" open>
+          <summary className="cursor-pointer text-sm font-black">Official knockout detail</summary>
+          <div className="mt-4 space-y-2">
+            {officialRows.map((row) => (
+              <OfficialPointLine key={row.id} row={row} />
+            ))}
+          </div>
+        </details>
       </div>
     </section>
+  );
+}
+
+function ScoreTotalCard({ label, value, detail, tone = "light" }: { label: string; value: number; detail: string; tone?: "light" | "dark" }) {
+  return (
+    <div className={`rounded-xl border p-4 ${tone === "dark" ? "border-zinc-950 bg-zinc-950 text-white" : "border-zinc-200 bg-zinc-50 text-zinc-950"}`}>
+      <p className={`text-xs font-black uppercase tracking-wide ${tone === "dark" ? "text-amber-200" : "text-zinc-500"}`}>{label}</p>
+      <p className="mt-2 text-4xl font-black">{value}</p>
+      <p className={`mt-1 text-xs font-bold ${tone === "dark" ? "text-zinc-300" : "text-zinc-500"}`}>{detail}</p>
+    </div>
+  );
+}
+
+function OfficialPointLine({
+  row,
+}: {
+  row: {
+    id: string;
+    label: string;
+    roundTitle: string;
+    pickedTeamId?: string;
+    result?: SubmissionDetail["matchResults"][number];
+    points: number;
+    possiblePoints: number;
+  };
+}) {
+  const resultLabel = row.result?.winnerTeamId ? getTeamName(row.result.winnerTeamId) : row.result?.status === "live" ? "Live" : "Pending";
+
+  return (
+    <div className={`rounded-lg border px-3 py-3 ${row.points > 0 ? "border-emerald-300 bg-emerald-50 text-zinc-950" : "border-white/10 bg-white/10 text-white"}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className={`text-[10px] font-black uppercase tracking-wide ${row.points > 0 ? "text-emerald-800" : "text-zinc-300"}`}>
+            {row.roundTitle} · {row.label}
+          </p>
+          <p className="mt-1 truncate text-sm font-black">Pick: {getTeamName(row.pickedTeamId)}</p>
+        </div>
+        <span className={`shrink-0 rounded px-2 py-1 text-xs font-black ${row.points > 0 ? "bg-emerald-700 text-white" : "bg-white/10 text-white"}`}>
+          +{row.points}/{row.possiblePoints}
+        </span>
+      </div>
+      <p className={`mt-2 text-xs font-bold ${row.points > 0 ? "text-zinc-600" : "text-zinc-300"}`}>Result: {resultLabel}</p>
+    </div>
   );
 }
 
